@@ -2,6 +2,8 @@
 
 This graphical user interface of Andor ZL41 Wave 5.5 scientific CMOS camera is designed for applications in atomic, molecular and optical (AMO) physics experiments.
 
+*Forked from the SrF branch of [pixelfly-python-control](https://github.com/SrFDeMilleGroup/pixelfly-python-control) repository.* 
+
 Key features include:
 - camera configuration
 - real time image display
