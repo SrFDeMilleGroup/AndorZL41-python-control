@@ -1,6 +1,6 @@
-# pixelfly-python-control
+# AndorZL41-python-control
 
-This graphical user interface of [pco.pixelfly usb](https://www.pco.de/scientific-cameras/pcopixelfly-usb/) scientific camera is designed for applications in atomic, molecular and optical (AMO) physics experiments.
+This graphical user interface of Andor ZL41 Wave 5.5 scientific CMOS camera is designed for applications in atomic, molecular and optical (AMO) physics experiments.
 
 Key features include:
 - camera configuration
