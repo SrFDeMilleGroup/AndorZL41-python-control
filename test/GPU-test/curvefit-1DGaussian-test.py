@@ -8,19 +8,19 @@ from torchimize.functions.jacobian import jacobian_approx_loop
 import time
 
 class scipy_curve_fit_tester:
-    def __init__(self, num_points=100000, repeat=5, tolerance=1e-6, max_num_iter=50):
+    def __init__(self, array_size=100000, repeat=5, tolerance=1e-6, max_num_iter=50):
 
-        self.num_points = int(num_points)
-        self.true_param = np.array((4, self.num_points/2, self.num_points/20, 1), dtype=np.float32) # amp, xcenter, sigma, offset  
+        self.array_size = int(array_size)
+        self.true_param = np.array((4, self.array_size/2, self.array_size/20, 1), dtype=np.float32) # amp, xcenter, sigma, offset  
 
-        self.init_param = [3, self.num_points/1.8, self.num_points/40, 0]
+        self.init_param = np.array([3, self.array_size/1.8, self.array_size/40, 0], dtype=np.float32)
         self.repeat = int(repeat)
         self.tolerance = tolerance
         self.max_num_iter = int(max_num_iter)
 
     def generate_data(self):
 
-        self.xdata = np.arange(self.num_points, dtype=np.float32)
+        self.xdata = np.arange(self.array_size, dtype=np.float32)
 
         self.ydata = self.gaussian_1d(self.xdata, *self.true_param)
         rng = np.random.default_rng(seed=0)
@@ -38,8 +38,14 @@ class scipy_curve_fit_tester:
         elapsed_time_list = []
         for _ in range(self.repeat):
             t0 = time.time()
-            popt, pcov = scipy.optimize.curve_fit(self.gaussian_1d, self.xdata, self.ydata, p0=self.init_param, maxfev=self.max_num_iter, ftol=self.tolerance)
+            popt, pcov, infodict, msg, success = scipy.optimize.curve_fit(self.gaussian_1d, self.xdata, self.ydata, 
+                                                  p0=self.init_param, 
+                                                  maxfev=self.max_num_iter*2*(self.init_param.shape[0]+1), 
+                                                  ftol=self.tolerance,
+                                                  full_output=True)
+            
             elapsed_time_list.append(time.time() - t0)
+            assert success in [1,2,3,4], 'Scipy: Fit failed.\n ' + msg
 
         if print_time:
             print('Scipy elapsed times: ' + ', '.join(['{:.3f}'.format(i) for i in elapsed_time_list]) + ' s.')
@@ -48,11 +54,11 @@ class scipy_curve_fit_tester:
         return (popt, self.true_param, self.init_param, self.xdata, self.ydata, self.gaussian_1d(self.xdata, *popt))
     
 class gpufit_curve_fit_tester(scipy_curve_fit_tester):
-    def __init__(self, num_points=None, repeat=None, tolerance=None, max_num_iter=None):
+    def __init__(self, array_size=None, repeat=None, tolerance=None, max_num_iter=None):
 
         kwargs = {}
-        if num_points is not None:
-            kwargs['num_points'] = num_points
+        if array_size is not None:
+            kwargs['array_size'] = array_size
         if repeat is not None:
             kwargs['repeat'] = repeat
         if tolerance is not None:
@@ -85,23 +91,25 @@ class gpufit_curve_fit_tester(scipy_curve_fit_tester):
                                                                                         tolerance = self.tolerance,
                                                                                         max_number_iterations = self.max_num_iter, 
                                                                                         parameters_to_fit = None, 
-                                                                                        estimator_id = None, 
+                                                                                        estimator_id = gf.EstimatorID.LSE, 
                                                                                         user_info = None)
             elapsed_time_list.append(time.time() - t0)
             exec_time_list.append(execution_time)
+
+            assert states[0] == gf.Status.Ok, 'gpufit: Fit failed.'
         
         if print_time:
             print('gpufit elapsed times: ' + ', '.join(['{:.3f}'.format(i) for i in elapsed_time_list]) + ' s.')
             print('gpufit average time: {:.3f} s.'.format(np.mean(elapsed_time_list)))
 
-        return (fitted_param[0], self.true_param, self.init_param[0], self.xdata, self.ydata[0], self.gaussian_1d(self.xdata, *fitted_param[0]))
+        return (fitted_param[-1], self.true_param, self.init_param[0], self.xdata, self.ydata[0], self.gaussian_1d(self.xdata, *fitted_param[0]))
 
 class torchimize_curve_fit_tester(scipy_curve_fit_tester):
-    def __init__(self, num_points=None, repeat=None, tolerance=None, max_num_iter=None):
+    def __init__(self, array_size=None, repeat=None, tolerance=None, max_num_iter=None):
 
         kwargs = {}
-        if num_points is not None:
-            kwargs['num_points'] = num_points
+        if array_size is not None:
+            kwargs['array_size'] = array_size
         if repeat is not None:
             kwargs['repeat'] = repeat
         if tolerance is not None:
@@ -125,10 +133,6 @@ class torchimize_curve_fit_tester(scipy_curve_fit_tester):
     def gaussian_1d_torch(self, x, amp, xcenter, sigma, offset):
             
         return amp * torch.exp(- (x - xcenter)**2 / (2 * sigma**2)) + offset
-
-    def cost_func(self, param, x, y):
-
-        return (y - self.gaussian_1d_torch(x, *param))**2
     
     def curve_fit_test(self, print_time=True):
 
@@ -136,14 +140,15 @@ class torchimize_curve_fit_tester(scipy_curve_fit_tester):
 
         # traced_cost_func = torch.jit.trace(self.cost_func, (self.init_param, self.xdata, self.ydata))
 
-        jac_func = lambda p, xdata, ydata: jacobian_approx_loop(p, f=self.cost_func, dp=1e-6, args=(xdata, ydata))
+        cost_func = lambda p, xdata, ydata: (ydata - self.gaussian_1d_torch(xdata, *p))**2
+        jac_func = lambda p, xdata, ydata: jacobian_approx_loop(p, f=cost_func, dp=1e-6, args=(xdata, ydata))
 
         elapsed_time_list = []
         for _ in range(self.repeat):
             t0 = time.time()
 
             # returns a list of tensors consisting of fitted parameters found in each iteration
-            fitted_param = lsq_lma(self.init_param, function=self.cost_func, jac_function=jac_func, 
+            fitted_param = lsq_lma(self.init_param, function=cost_func, jac_function=jac_func, 
                                     args=(self.xdata, self.ydata), max_iter=self.max_num_iter, 
                                     ftol=self.tolerance, gtol=self.tolerance, ptol=self.tolerance)
             
@@ -159,7 +164,7 @@ class torchimize_curve_fit_tester(scipy_curve_fit_tester):
                 self.gaussian_1d(self.xdata.cpu().numpy(), *fitted_param[-1].cpu().numpy()))
 
 
-# num_points = 100
+# array_size = 100
 scipy_test = scipy_curve_fit_tester()
 fitted_param, true_param, init_param, xdata, ydata, scipy_fitted_ydata = scipy_test.curve_fit_test(print_time=True)
 

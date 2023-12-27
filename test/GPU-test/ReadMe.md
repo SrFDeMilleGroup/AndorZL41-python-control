@@ -17,7 +17,7 @@
 
 ### Curve fit
 - [gpufit](https://github.com/gpufit/Gpufit)
-    - My final choice
+    - only support arrays in 2D fit
 - [JAXFit](https://github.com/Dipolar-Quantum-Gases/jaxfit)
     - Faster than gpufit 
     - But requires JAX, which doesn't natively support GPUs on Windows. JAXFit GitHub homepage has instructions to install JAX on Windows for GPU in a third-party way. But even with this, I can only get it work for Nvidia Quadro (workstation) and Tesla (cluster) series GPUs, but not for GeForce series. Quadro and Tesla GPUs are significantly more expensive than GeForce ones of similar specs.
