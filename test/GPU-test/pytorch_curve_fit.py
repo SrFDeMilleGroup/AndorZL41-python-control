@@ -14,31 +14,47 @@ Below is a good introduction to the Levenberg-Marquardt algorithm:
 'The Levenberg-Marquardt algorithm for nonlinear least squares curve-fitting problems' by Henri. P. Gavin
 https://people.duke.edu/~hpgavin/ExperimentalSystems/lm.pdf
 
-installation
-make input numpy isntead of torch
-
+Installation:
+1. Microsoft Visual Studio with C++ build tools. 
+   https://visualstudio.microsoft.com/downloads/
+   By the time of writing, version 2022 community is used, and option 'Desktop development with C++' is selected during installation)
+2. Nvidia CUDA toolkit.
+   https://developer.nvidia.com/cuda-toolkit-archive
+   By the time of writing, version 12.1 is used.
+3. Nvidia cuDNN library.
+   https://developer.nvidia.com/rdp/cudnn-archive
+   By the time of writing, version 8.9.6 is used. 
+   Follow the installation guide below to move the files to CUDA toolkit folder C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDNN\\v8.9\\,
+   and add the path to bin\ to the system environment variable PATH:
+   https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html#install-windows
+4. PyTorch
+   https://pytorch.org/get-started/locally/
+   Make sure to select a CUDA version, instead of CPU-only version.
+   By the time of writing, version 2.1.2 is used.
+   
 """
 
+import numpy as np
 import torch
 import logging
 
 __all__ = ['gaussian_1d_fit_lma', 'gaussian_2d_fit_lma']
 
-def gaussian_1d_fit_lma(p: torch.Tensor, xdata: torch.Tensor, ydata: torch.Tensor, 
+def gaussian_1d_fit_lma(p: np.ndarray, xdata: np.ndarray, ydata: np.ndarray, 
                         tau: float = 1e-3, rho1: float = .25, rho2: float = .75, 
                         beta: float = 2, gamma: float = 3,
                         meth: str = 'lev', max_iter: int = 100,
                         ftol: float = 1e-8, ptol: float = 1e-8, gtol: float = 1e-8, 
-                        ) -> tuple[torch.Tensor, int, bool]:
+                        ) -> tuple[np.ndarray, int, bool]:
     
     """
     Levenberg-Marquardt implementation for least-squares fitting of 1D gaussian functions
 
     arguments:
     --------------------------------------------------
-    p -> torch.Tensor: initial guess of fitting parameters, in order of [amplitude, x_mean, x_sigma, offset]
-    xdata -> torch.Tensor: x values of data
-    ydata -> torch.Tensor: y values of data
+    p -> np.ndarray: initial guess of fitting parameters, in order of [amplitude, x_mean, x_sigma, offset]
+    xdata -> np.ndarray: x values of data
+    ydata -> np.ndarray: y values of data
     tau -> float: factor to initialize damping parameter
     rho1 -> float: first gain factor threshold for damping parameter adjustment for Marquardt method
     rho2 -> float: second gain factor threshold for damping parameter adjustment for Marquardt method
@@ -52,7 +68,7 @@ def gaussian_1d_fit_lma(p: torch.Tensor, xdata: torch.Tensor, ydata: torch.Tenso
 
     return:
     --------------------------------------------------
-    p -> torch.Tensor: fitted parameters, in order of [amplitude, x_mean, x_sigma, offset]
+    p -> np.ndarray: fitted parameters, in order of [amplitude, x_mean, x_sigma, offset]
     i -> int: number of iterations
     success -> bool: whether the fit is successful
     """
@@ -65,6 +81,10 @@ def gaussian_1d_fit_lma(p: torch.Tensor, xdata: torch.Tensor, ydata: torch.Tenso
     assert rho2 >= rho1, 'Gaussian 1D fit: rho2 must be greater than rho1.'
 
     cost_func = lambda p, x, y: p[0] * torch.exp(- (x - p[1])**2 / (2 * p[2]**2)) + p[3] - y
+
+    p = torch.tensor(p, dtype=torch.float32, device='cuda:0')
+    xdata = torch.tensor(xdata, dtype=torch.float32, device='cuda:0')
+    ydata = torch.tensor(ydata, dtype=torch.float32, device='cuda:0')
 
     f = cost_func(p, xdata, ydata)
     j = torch.ones((xdata.shape[0], 4), dtype=torch.float32, device='cuda:0')
@@ -124,7 +144,7 @@ def gaussian_1d_fit_lma(p: torch.Tensor, xdata: torch.Tensor, ydata: torch.Tenso
 
         i += 1
 
-    return (p, i, success)
+    return (p.cpu().numpy(), i, success)
 
 
 def gaussian_2d_fit_lma(p: torch.Tensor, xdata: torch.Tensor, ydata: torch.Tensor, zdata: torch.Tensor,
