@@ -40,5 +40,12 @@ Other softwares
 - better naming, not like Control...
 - camera take multiple images and only readout at the end of the cycle
 - interface with Andor ZL41, and add widgets for its settings
+  - turn on cooling/fan status, display them and temperature
+  - trig mode
+  - exposure time
+  - Aux output
+  - AOI: area of interest
+  - binning
+  - pixel reading baseline
 - apply to Apogee camera
-- better readmemd file
+- better readme.md file

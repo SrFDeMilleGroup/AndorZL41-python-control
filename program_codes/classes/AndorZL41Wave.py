@@ -1,6 +1,5 @@
 from pyAndorSDK3 import AndorSDK3
 import logging
-import matplotlib.pyplot as plt
 
 class AndorZL41Wave:
     def __init__(self, parent):
@@ -22,18 +21,34 @@ class AndorZL41Wave:
             logging.error(err)
             self.camera = None
 
-        print(self.camera.CoolerPower)
+    def set_cooling(self, type: str, cooling: bool):
+        """Turn on or off camera sensor cooling."""
 
-        print("Camera sensor temperature: {:.2f} C.".format(self.camera.SensorTemperature))
+        assert type in ['sensor', 'fan']
+        assert type(cooling) == bool
 
-        print("Getting image data...")
-        acq = self.camera.acquire(timeout=20000)
-        print("Performed single acqition")
-        self.camera.close()
+        if self.camera is not None:
+            if type == 'sensor':
+                # Sensor cooler refers to the TE cooler on sCMOS sensor.
+                self.camera.SensorCooling = cooling
+            elif type == 'fan':
+                self.camera.FanSpeed = 'On' if cooling else 'Off'
 
-        plt.imshow(acq.image)
-        plt.show()
+    def get_cooling_status(self):
+        """Get camera cooling status, including fan status, sensor cooler status, sensor cooling status, and sensor temperature."""
+
+        if self.camera is not None:
+            fan_status = self.camera.FanSpeed == 'On' # "on" or "Off"
+            sensor_cooler_status = self.camera.SensorCooling == 1 # 1 or 0, Sensor cooler refers to the TE cooler on sCMOS sensor.
+            sensor_cooling_staus = self.camera.TemperatureStatus # options: Cooler off, Stabilised, Cooling, Drift, Not Stabilised, Fault
+            sensor_temp = self.camera.SensorTemperature
+
+            return fan_status, sensor_cooler_status, sensor_cooling_staus, sensor_temp
+        
+        else:
+            return None, None, None, None
 
 
+logging.getLogger().setLevel("INFO")
 cam = AndorZL41Wave(None)
 

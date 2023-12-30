@@ -10,8 +10,6 @@ print("Connecting to camera (index = {:d}) ...".format(cam_index))
 cam = sdk3.GetCamera(cam_index)
 print(f"Connected to camera. Camera model: {cam.CameraModel}. Serial number: {cam.SerialNumber}. Interface: {cam.InterfaceType}. Firmware version: {cam.FirmwareVersion}.")
 
-print(cam.CoolerPower)
-
 print("Camera sensor temperature: {:.2f} C.".format(cam.SensorTemperature))
 
 print("Getting image data...")
