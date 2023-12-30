@@ -7,7 +7,7 @@ print("Found {:d} camera(s).".format(sdk3.DeviceCount))
 
 cam_index = 0
 print("Connecting to camera (index = {:d}) ...".format(cam_index))
-cam = sdk3.GetCamera(0)
+cam = sdk3.GetCamera(cam_index)
 print(f"Connected to camera. Camera model: {cam.CameraModel}. Serial number: {cam.SerialNumber}. Interface: {cam.InterfaceType}. Firmware version: {cam.FirmwareVersion}.")
 
 print(cam.CoolerPower)

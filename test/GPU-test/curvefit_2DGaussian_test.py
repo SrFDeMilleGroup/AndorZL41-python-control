@@ -5,8 +5,15 @@ import pygpufit.gpufit as gf
 import torch
 from torchimize.functions import lsq_lma
 from torchimize.functions.jacobian import jacobian_approx_loop
-from pytorch_curve_fit import gaussian_2d_fit_lma
 import time
+
+from os.path import dirname, abspath
+import sys
+
+d = dirname(dirname(dirname(abspath(__file__)))) + "/program_codes"
+sys.path.append(d)
+
+from pytorch_curve_fit import gaussian_1d_fit_lma
 
 class scipy_curve_fit_tester:
     def __init__(self, array_size_x=1000, array_size_y=1000, noise_level=0.5, repeat=5, tolerance=1e-6, max_num_iter=50):

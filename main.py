@@ -1,63 +1,19 @@
-import sys
-import h5py
-import time
-import logging
-import traceback
-import configparser
+import sys, os, time, configparser
+import logging, traceback
 import numpy as np
 from scipy.ndimage import gaussian_filter
 from scipy import optimize
 import PyQt5
 import pyqtgraph as pg
 import PyQt5.QtWidgets as qt
-import os
-import pco
 import qdarkstyle # see https://github.com/ColinDuquesnoy/QDarkStyleSheet
-import socket
-import selectors
-import struct
+import socket, selectors, struct
 from collections import deque
+import h5py
 
-from widgets import NewSpinBox, NewDoubleSpinBox, NewComboBox, Scrollarea, imageWidget
-
-
-def gaussian(amp, x_mean, y_mean, x_width, y_width, offset):
-    x_width = float(x_width)
-    y_width = float(y_width)
-
-    return lambda x, y: amp*np.exp(-0.5*((x-x_mean)/x_width)**2-0.5*((y-y_mean)/y_width)**2) + offset
-
-# return a 2D gaussian fit
-# generally a 2D gaussian fit can have 7 params, 6 of them are implemented here (the excluded one is an angle)
-# codes adapted from https://scipy-cookbook.readthedocs.io/items/FittingData.html
-def gaussianfit(data):
-    # calculate moments for initial guess
-    total = np.sum(data)
-    X, Y = np.indices(data.shape)
-    x_mean = np.sum(X*data)/total
-    x_mean = np.clip(x_mean, 0, data.shape[0]-1) # coerce x_mean to data shape
-    y_mean = np.sum(Y*data)/total
-    y_mean = np.clip(y_mean, 0, data.shape[1]-1) # coerce y_mean to data shape
-    col = data[:, int(y_mean)]
-    x_width = np.sqrt(np.abs((np.arange(col.size)-x_mean)**2*col).sum()/col.sum())
-    row = data[int(x_mean), :]
-    y_width = np.sqrt(np.abs((np.arange(row.size)-y_mean)**2*row).sum()/row.sum())
-    offset = (data[0, :].sum()+data[-1, :].sum()+data[:, 0].sum()+data[:, -1].sum())/np.sum(data.shape)/2
-    amp = data.max() - offset
-
-    # use optimize function to obtain 2D gaussian fit
-    errorfunction = lambda p: np.ravel(gaussian(*p)(*np.indices(data.shape))-data)
-    p, success = optimize.leastsq(errorfunction, (amp, x_mean, y_mean, x_width, y_width, offset))
-
-    p_dict = {}
-    p_dict["x_mean"] = p[1]
-    p_dict["y_mean"] = p[2]
-    p_dict["x_width"] = p[3]
-    p_dict["y_width"] = p[4]
-    p_dict["amp"] = p[0]
-    p_dict["offset"] = p[5]
-
-    return p_dict
+from pyAndorSDK3 import AndorSDK3
+from program_codes.widgets import NewSpinBox, NewDoubleSpinBox, NewComboBox, Scrollarea, imageWidget
+from program_codes.gaussian_fit import gaussian_2d_fit
 
 
 # this thread handles TCP communication with another PC, it starts when this program starts
@@ -950,7 +906,14 @@ class Control(Scrollarea):
 
                 if self.gaussian_fit:
                     # do 2D gaussian fit and update GUI displays
-                    param = gaussianfit(img_dict["image_post_roi"])
+                    popt = gaussian_2d_fit(img_dict["image_post_roi"])
+                    param = {}
+                    param["x_mean"] = popt[1]
+                    param["y_mean"] = popt[2]
+                    param["x_width"] = popt[3]
+                    param["y_width"] = popt[4]
+                    param["amp"] = popt[0]
+                    param["offset"] = popt[5]
                     self.amp.setText("{:.2f}".format(param["amp"]))
                     self.offset.setText("{:.2f}".format(param["offset"]))
                     self.x_mean.setText("{:.2f}".format(param["x_mean"]+self.roi["xmin"]))

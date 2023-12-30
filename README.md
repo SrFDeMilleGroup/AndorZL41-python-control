@@ -35,10 +35,10 @@ Other softwares
 - https://andor.oxinst.com/tools/third-party-software-matrix
 
 ## To-do
-- check widgets scripts and make sure it's the latest
-- oprn file explorer when saving settings
-- better way to save/load settings?
+- open file explorer when saving settings
+- better way to save/load settings? another folder, no defaults file
+- better naming, not like Control...
 - camera take multiple images and only readout at the end of the cycle
 - interface with Andor ZL41, and add widgets for its settings
-- GPU acceleration (Andor GPU Express is not free, but maybe we can do 2D gaussian fit and gaussain filter on GPU to accelerate)
 - apply to Apogee camera
+- better readmemd file
