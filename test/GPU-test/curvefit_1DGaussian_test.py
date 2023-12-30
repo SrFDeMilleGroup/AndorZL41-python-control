@@ -12,7 +12,7 @@ class scipy_curve_fit_tester:
     def __init__(self, array_size=1000000, noise_level=0.25, repeat=5, tolerance=1e-6, max_num_iter=50):
 
         self.array_size = int(array_size)
-        self.noise_level = noise_level
+        self.noise_level = noise_level # noise level as the ratio of noise pk-pk to signal amplitude
         self.true_param = np.array((4, self.array_size/2, self.array_size/20, 1), dtype=np.float32) # amp, xcenter, sigma, offset  
 
         self.init_param = np.array([3, self.array_size/1.8, self.array_size/40, 0], dtype=np.float32)
@@ -149,13 +149,13 @@ class modified_torch_curve_fit_tester(torchimize_curve_fit_tester):
             elapsed_time_list.append(time.time() - t0)
 
         if print_time:
-            print('my code elapsed times: ' + ', '.join(['{:.3f}'.format(i) for i in elapsed_time_list]) + ' s.')
-            print('my code average time: {:.3f} s.'.format(np.mean(elapsed_time_list)))
+            print('modified torch elapsed times: ' + ', '.join(['{:.3f}'.format(i) for i in elapsed_time_list]) + ' s.')
+            print('modified torch average time: {:.3f} s.'.format(np.mean(elapsed_time_list)))
 
         return (fitted_param, self.true_param, self.init_param, 
                 xdata, ydata, self.gaussian_1d(xdata, *fitted_param))
 
-# array_size = 100
+
 scipy_test = scipy_curve_fit_tester()
 fitted_param, true_param, init_param, xdata, ydata, scipy_fitted_ydata = scipy_test.curve_fit_test(print_time=True)
 
@@ -172,7 +172,7 @@ plt.plot(xdata, ydata, 'o')
 plt.plot(xdata, scipy_fitted_ydata, '--', label='Scipy fit')
 plt.plot(xdata, gpufit_fitted_ydata, '--', label='Gpufit fit')
 plt.plot(xdata, torchimize_fitted_ydata, '--', label='PyTorch fit')
-plt.plot(xdata, modified_torch_fitted_ydata, '--', label='My code fit')
+plt.plot(xdata, modified_torch_fitted_ydata, '--', label='modified torch fit')
 plt.legend()
 plt.grid()
 plt.show()

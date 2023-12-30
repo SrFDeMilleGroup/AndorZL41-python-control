@@ -22,7 +22,7 @@ Written in Python 3.10. Frequently tested on Window 10. A 24-inch 1080p monitor 
 - Navigate to *C:/Program Files/Andor SDK3/Docs/Camera Feature Reference/* to find available camera features (for programing).
 
 ## GPU acceleration
-Here we use a GPU to accelerate real time 2D Gaussian fit and Gaussian fit. Note that Andor also offers a [GPU express package](https://andor.oxinst.com/products/gpu-express/gpu-express) but it is not free.
+Here we use a GPU to accelerate real time 2D Gaussian fit. Note that Andor also offers a [GPU express package](https://andor.oxinst.com/products/gpu-express/gpu-express) but it is not free.
 
 ## Useful third party software resources
 Python (for SDK3)
