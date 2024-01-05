@@ -22,6 +22,10 @@ class AndorZL41Wave:
             logging.error(err)
             self.camera = None
 
+    def init_camera(self):
+        if self.camera is None:
+            self.camera.AOILayout = 'Image' # default setting is also image, this step can be skipped
+
     def init_AOI_settings(self):
         """Initialize AOI settings. When the cemera is just opened, the AOI settings initialized to the default values."""
 
