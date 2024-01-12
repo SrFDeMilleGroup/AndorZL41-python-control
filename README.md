@@ -61,6 +61,7 @@ Other softwares
 - https://andor.oxinst.com/tools/third-party-software-matrix
 
 ## To-do
+- test buttons in control gui
 - start and close functions
 - dummy camera
 - save/load program settings

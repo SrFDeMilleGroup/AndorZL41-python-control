@@ -26,6 +26,7 @@ class AndorZL41Wave:
         except Exception as err:
             logging.error(f"Failed to connect to camera of index = {cam_index}.")
             logging.error(err)
+            logging.error("Using a dummy camera instance instead.")
             self.camera = DummyCamera()
 
         self.init_cam()

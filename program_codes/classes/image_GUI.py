@@ -50,7 +50,7 @@ class ImageGUI(Scrollarea):
                                             self.parent.config.getint("image_control", "software_roi_xmin"),
                                             self.parent.config.getint("image_control", "software_roi_ymax") - \
                                             self.parent.config.getint("image_control", "software_roi_ymin")))
-            image_widget.image_roi.sigRegionChanged.connect(self.update_image_roi(source_image_name=name))
+            image_widget.image_roi.sigRegionChanged.connect(lambda name=name: self.update_image_roi(source_image_name=name))
             image_widget.image_roi.setBounds(pos=[0,0], size=[self.parent.config.getint("camera_control", "hardware_roi_width"), 
                                                               self.parent.config.getint("camera_control", "hardware_roi_height")])
 
@@ -91,7 +91,7 @@ class ImageGUI(Scrollarea):
         # no "snap" option for LinearRegion item?
         self.x_plot_lr.setBounds([0, self.parent.config.getint("camera_control", "hardware_roi_width")])
         x_plot.addItem(self.x_plot_lr)
-        self.x_plot_lr.sigRegionChanged.connect(self.update_image_roi(source_image_name="x_plot"))
+        self.x_plot_lr.sigRegionChanged.connect(lambda name="x_plot": self.update_image_roi(source_image_name=name))
 
         graphlayout.nextRow()
 
@@ -109,9 +109,9 @@ class ImageGUI(Scrollarea):
         self.y_plot_lr = pg.LinearRegionItem([self.parent.config.getint("image_control", "software_roi_ymin"),
                                               self.parent.config.getint("image_control", "software_roi_ymax")], 
                                              swapMode="block")
-        self.y_plot_lr.setBounds([0, self.parent.config.getint("image_control", "hardware_roi_height")])
+        self.y_plot_lr.setBounds([0, self.parent.config.getint("camera_control", "hardware_roi_height")])
         y_plot.addItem(self.y_plot_lr)
-        self.y_plot_lr.sigRegionChanged.connect(self.update_image_roi(source_image_name="y_plot"))
+        self.y_plot_lr.sigRegionChanged.connect(lambda name="y_plot": self.update_image_roi(source_image_name=name))
 
         graphlayout = pg.GraphicsLayoutWidget(parent=self, border=True)
         self.curve_tab.addTab(graphlayout, " Signal in ROI ")
@@ -124,8 +124,8 @@ class ImageGUI(Scrollarea):
         x_plot.setLabel("right")
         # x_plot.getAxis("right").setTicks([])
         x_plot.getAxis("right").setStyle(**tickstyle)
-        data_roi = self.starting_data[self.parent.config.getint("image_control", "xmin") : self.parent.config.getint("image_control", "xmax"),
-                                      self.parent.config.getint("image_control", "ymin") : self.parent.config.getint("image_control", "ymax")]
+        data_roi = self.starting_data[self.parent.config.getint("image_control", "software_roi_xmin") : self.parent.config.getint("image_control", "software_roi_xmax"),
+                                      self.parent.config.getint("image_control", "software_roi_ymin") : self.parent.config.getint("image_control", "software_roi_ymax")]
         x_data = np.sum(data_roi, axis=1)
         self.x_plot_roi_curve = x_plot.plot(x_data)
         self.x_plot_roi_fit_curve = x_plot.plot(np.array([]))
@@ -198,6 +198,7 @@ class ImageGUI(Scrollarea):
             return
 
         if source_image_name in self.signal_image_name_list:
+            print(self.signal_image_widget_list.keys())
             xmin, ymin = self.signal_image_widget_list[source_image_name].image_roi.pos()
             xsize, ysize = self.signal_image_widget_list[source_image_name].image_roi.size()
             xmax = xmin + xsize

@@ -28,16 +28,16 @@ class AndorGUI(qt.QMainWindow):
 
         # # instantiate other classes
         self.control_gui = ControlGUI(self)
-        # self.image_gui = ImageGUI(self)
+        self.image_gui = ImageGUI(self)
 
         # # load latest settings
         # # self.load_settings(latest=True)
 
-        # self.splitter = qt.QSplitter()
-        # self.splitter.setOrientation(PyQt5.QtCore.Qt.Horizontal)
-        # self.setCentralWidget(self.splitter)
-        # self.splitter.addWidget(self.image_gui)
-        # self.splitter.addWidget(self.control_gui)
+        self.splitter = qt.QSplitter()
+        self.splitter.setOrientation(PyQt5.QtCore.Qt.Horizontal)
+        self.setCentralWidget(self.splitter)
+        self.splitter.addWidget(self.image_gui)
+        self.splitter.addWidget(self.control_gui)
 
         self.resize(1600, 900)
         self.show()
@@ -290,7 +290,7 @@ class AndorGUI(qt.QMainWindow):
             self.control_gui.software_roi_xmin_sb.blockSignals(True)
             self.control_gui.software_roi_xmax_sb.blockSignals(True)
             self.control_gui.software_roi_xmin_sb.setRange(0, xmax)
-            self.control_gui.software_roi_xmax_sb.setRange(xmin, self.config.getint("camera_control", "hardware_aoi_width") - 1)
+            self.control_gui.software_roi_xmax_sb.setRange(xmin, self.config.getint("camera_control", "hardware_roi_width") - 1)
             self.control_gui.software_roi_xmin_sb.setValue(xmin)
             self.control_gui.software_roi_xmax_sb.setValue(xmax)
             self.control_gui.software_roi_xmin_sb.blockSignals(False)
@@ -300,7 +300,7 @@ class AndorGUI(qt.QMainWindow):
             self.control_gui.software_roi_ymin_sb.blockSignals(True)
             self.control_gui.software_roi_ymax_sb.blockSignals(True)
             self.control_gui.software_roi_ymin_sb.setRange(0, ymax)
-            self.control_gui.software_roi_ymax_sb.setRange(ymin, self.config.getint("camera_control", "hardware_aoi_height") - 1)
+            self.control_gui.software_roi_ymax_sb.setRange(ymin, self.config.getint("camera_control", "hardware_roi_height") - 1)
             self.control_gui.software_roi_ymin_sb.setValue(ymin)
             self.control_gui.software_roi_ymax_sb.setValue(ymax)
             self.control_gui.software_roi_ymin_sb.blockSignals(False)

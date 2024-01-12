@@ -32,15 +32,10 @@ class ControlGUI(Scrollarea):
 
         # places GUI elements
         self.place_recording_control()
-        print(1)
         self.place_image_control()
-        print(2)
         self.place_cam_control()
-        print(3)
         self.place_tcp_control()
-        print(4)
         self.place_save_load_control()
-        print(5)
 
         # don't start tcp thread here, 
         # it will be started when the program load latest setting (using load_settings(latest=true))
@@ -310,7 +305,7 @@ class ControlGUI(Scrollarea):
         roi_center_box.setLayout(roi_center_layout)
         roi_center_layout.addWidget(self.hardware_roi_h_centered_chb)
         roi_center_layout.addWidget(self.hardware_roi_v_centered_chb)
-        cam_ctrl_frame.addRow("HW ROI centered H & V:", roi_center_layout)
+        cam_ctrl_frame.addRow("HW ROI centered H & V:", roi_center_box)
 
         self.hardware_roi_left_sb = NewSpinBox(range=(0, 2559), suffix=None)
         self.hardware_roi_left_sb.setValue(self.parent.config.getint("camera_control", "hardware_roi_left"))
@@ -327,7 +322,7 @@ class ControlGUI(Scrollarea):
         roi_start_box.setLayout(roi_start_layout)
         roi_start_layout.addWidget(self.hardware_roi_left_sb)
         roi_start_layout.addWidget(self.hardware_roi_top_sb)
-        cam_ctrl_frame.addRow("HW ROI start H & V:", roi_start_layout)
+        cam_ctrl_frame.addRow("HW ROI start H & V:", roi_start_box)
 
         self.hardware_roi_width_sb = NewSpinBox(range=(1, 2560), suffix=None)
         self.hardware_roi_width_sb.setValue(self.parent.config.getint("camera_control", "hardware_roi_width"))
@@ -552,12 +547,12 @@ class ControlGUI(Scrollarea):
 
         self.save_settings_pb = qt.QPushButton("save settings")
         self.save_settings_pb.setMaximumWidth(200)
-        self.save_settings_pb.clicked[bool].connect(lambda val: self.parent.save_settings(latest=False))
+        self.save_settings_pb.clicked[bool].connect(lambda val, latest=False: self.parent.save_settings(latest=latest))
         save_load_frame.addRow("Save settings:", self.save_settings_pb)
 
         self.load_settings_pb = qt.QPushButton("load settings")
         self.load_settings_pb.setMaximumWidth(200)
-        self.load_settings_pb.clicked[bool].connect(lambda val: self.parent.load_settings(latest=False))
+        self.load_settings_pb.clicked[bool].connect(lambda val, latest=False: self.parent.load_settings(latest=latest))
         save_load_frame.addRow("Load settings:", self.load_settings_pb)
 
     def enable_widgets(self, arg):
