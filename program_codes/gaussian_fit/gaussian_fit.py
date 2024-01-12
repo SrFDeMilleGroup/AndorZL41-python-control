@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import leastsq
 
-from pytorch_curve_fit import gaussian_2d_fit_lma
+from .pytorch_curve_fit import gaussian_2d_fit_lma
 
 def gaussian_2d(self, amp, x_mean, y_mean, x_sigma, y_sigma, offset):
 

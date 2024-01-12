@@ -61,21 +61,10 @@ Other softwares
 - https://andor.oxinst.com/tools/third-party-software-matrix
 
 ## To-do
-- open file explorer when saving settings
-- better way to save/load settings? another folder, no defaults file
-- better naming, not like Control...
+- start and close functions
+- dummy camera
+- save/load program settings
+- acquisition thread
 - camera take multiple images and only readout at the end of the cycle
-- interface with Andor ZL41, and add widgets for its settings
-  - turn on cooling/fan status, display them and temperature
-  - trig mode
-  - exposure time
-  - Aux output
-  - AOI: size, start, binning, centered, display sensor size somewhere, disable aoi start if centered is checked
-  - binning
-  - pixel reading baseline
-  - shutter mode
-  - software trigger
-  - display max frame rate in current setting
-  - frame rate
 - apply to Apogee camera
 - better readme.md file

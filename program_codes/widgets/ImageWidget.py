@@ -34,29 +34,29 @@ class imageWidget:
 
         self.graphlayout = pg.GraphicsLayoutWidget(parent=parent, border=True)
         plot = self.graphlayout.addPlot(row=1, col=1, rowspan=2, colspan=1, title=name)
-        self.img = pg.ImageItem(lockAspect=True)
-        plot.addItem(self.img)
+        self.image = pg.ImageItem(lockAspect=True)
+        plot.addItem(self.image)
 
         # add histogram/colorbar
         hist = pg.HistogramLUTItem()
-        hist.setImageItem(self.img)
+        hist.setImageItem(self.image)
         hist.gradient.restoreState({'mode': 'rgb', 'ticks': self.colormap})
 
         # add a pyqt widget to graphlayout
         # https://stackoverflow.com/questions/45184941/how-do-i-add-a-qpushbutton-to-pyqtgraph-using-additem
         proxy = qt.QGraphicsProxyWidget()
-        self.chb = qt.QCheckBox("Auto scale color")
-        proxy.setWidget(self.chb)
+        self.auto_scale_chb = qt.QCheckBox("Auto scale color")
+        proxy.setWidget(self.auto_scale_chb)
         self.graphlayout.addItem(hist, row=1, col=2)
         self.graphlayout.addItem(proxy, row=2, col=2)
-        # self.chb.setEnabled(False)
+        # self.auto_scale_chb.setEnabled(False)
 
         self.dummy_data = self.generate_dummy_data(dummy_data_xmax, dummy_data_ymax)
-        self.img.setImage(self.dummy_data)
+        self.image.setImage(self.dummy_data)
 
         if include_ROI:
             # place in-image ROI selection
-            self.img_roi = newRectROI(pos = [0, 0], 
+            self.image_roi = newRectROI(pos = [0, 0], 
                                 size = [100, 100],
                                 snapSize = 0,
                                 scaleSnap = False,
@@ -65,15 +65,15 @@ class imageWidget:
                                 # params ([x_start, y_start], [x_span, y_span])
 
             # add ROI scale handlers
-            self.img_roi.addScaleHandle([0, 0], [1, 1])
-            self.img_roi.addScaleHandle([1, 0], [0, 1])
-            self.img_roi.addScaleHandle([0, 1], [1, 0])
+            self.image_roi.addScaleHandle([0, 0], [1, 1])
+            self.image_roi.addScaleHandle([1, 0], [0, 1])
+            self.image_roi.addScaleHandle([0, 1], [1, 0])
             # params ([x, y], [x position scaled around, y position scaled around]), rectangular from 0 to 1
-            self.img_roi.addScaleHandle([0, 0.5], [1, 0.5])
-            self.img_roi.addScaleHandle([1, 0.5], [0, 0.5])
-            self.img_roi.addScaleHandle([0.5, 0], [0.5, 1])
-            self.img_roi.addScaleHandle([0.5, 1], [0.5, 0])
-            plot.addItem(self.img_roi)
+            self.image_roi.addScaleHandle([0, 0.5], [1, 0.5])
+            self.image_roi.addScaleHandle([1, 0.5], [0, 0.5])
+            self.image_roi.addScaleHandle([0.5, 0], [0.5, 1])
+            self.image_roi.addScaleHandle([0.5, 1], [0.5, 0])
+            plot.addItem(self.image_roi)
 
     def get_matplotlib_colormap(self, colorname="viridis", lut=6):
         color = cm.get_cmap(colorname, lut)
