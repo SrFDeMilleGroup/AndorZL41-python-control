@@ -1,8 +1,14 @@
 from pyAndorSDK3 import AndorSDK3
 import numpy as np
-import logging, time
+import logging, multiprocessing
 
 from .dummy_camera import DummyCamera
+
+
+def worker(return_dict):
+    # in the case where the camera PCIe card is not installed, the program will stuck here.
+    sdk3 = AndorSDK3()
+    return_dict['sdk3'] = sdk3
 
 class AndorZL41Wave:
     def __init__(self, parent):
@@ -10,12 +16,27 @@ class AndorZL41Wave:
 
         try:
             cam_index = 0
-            raise NotImplementedError("AndorZL41Wave is not implemented yet.")
-            self.sdk3 = AndorSDK3()
+            timeout = 1 # in seconds
+            
+            # follow https://stackoverflow.com/a/14924210
+            # and https://stackoverflow.com/a/37736655
+            # to set a timeout for opening Andor SDK3.
+            # If the camera PCIe card is not installed, the opening Andor SDK3 will take forever.
+            d = {}
+            queue = multiprocessing.Queue()
+            queue.put(d)
+            p = multiprocessing.Process(target=worker, args=(queue,))
+            p.start()
+            p.join(timeout)
+            if p.is_alive():
+                p.terminate() # stop the process because it times out
+                p.join()
+                raise Exception(f"Timeout for opening ANdor SDK3 (timeout = {timeout} seconds). Please check if the camera or the PCIe Camera Link card are installed.")
+                        
+            self.sdk3 = queue.get()['sdk3']
             logging.info(f"Using SDK version {self.sdk3.SoftwareVersion}.")
             logging.info("Found {:d} camera(s) in the system.".format(self.sdk3.DeviceCount))
 
-            cam_index = 0
             logging.info("Connecting to camera of index = {:d} ...".format(cam_index))
 
             self.camera = self.sdk3.GetCamera(cam_index)
@@ -63,17 +84,17 @@ class AndorZL41Wave:
                 binning = new_binning
             self.camera.AOIHBin = binning
             aoi_binning = self.camera.AOIHBin
-            aoi_width = self.cemera.AOIWidth # AOI size could be overwritten by binning setting, so read out again
-            aoi_width_min = self.cemera.min_AOIWidth
-            aoi_width_max = self.cemera.max_AOIWidth
-            aoi_left = self.cemera.AOILeft - 1 # AOI start position could be overwritten by binning setting, so read out again
-            aoi_left_min = self.cemera.min_AOILeft - 1
-            aoi_left_max = self.cemera.max_AOILeft - 1
+            aoi_width = self.camera.AOIWidth # AOI size could be overwritten by binning setting, so read out again
+            aoi_width_min = self.camera.min_AOIWidth
+            aoi_width_max = self.camera.max_AOIWidth
+            aoi_left = self.camera.AOILeft - 1 # AOI start position could be overwritten by binning setting, so read out again
+            aoi_left_min = self.camera.min_AOILeft - 1
+            aoi_left_max = self.camera.max_AOILeft - 1
             if centered:
                 AOI_start = int((self.cam_sensor_size_horizontal - aoi_width * aoi_binning) / 2)
                 AOI_start = np.clip(AOI_start, aoi_width_min, aoi_width_max)
-                self.cemera.AOILeft = AOI_start + 1
-                aoi_left = self.cemera.AOILeft - 1
+                self.camera.AOILeft = AOI_start + 1
+                aoi_left = self.camera.AOILeft - 1
                 if AOI_start != aoi_left:
                     logging.error(f"Failed to center AOI horizontally. AOI left should be {AOI_start}, but current value is {aoi_left}.")
 
@@ -85,12 +106,12 @@ class AndorZL41Wave:
                 binning = new_binning
             self.camera.AOIVBin = binning
             aoi_binning = self.camera.AOIVBin
-            aoi_height = self.cemera.AOIHeight # AOI size could be overwritten by binning setting, so read out again
-            aoi_height_min = self.cemera.min_AOIHeight
-            aoi_height_max = self.cemera.max_AOIHeight
-            aoi_top = self.cemera.AOITop - 1 # AOI start position could be overwritten by binning setting, so read out again
-            aoi_top_min = self.cemera.min_AOITop - 1
-            aoi_top_max = self.cemera.max_AOITop - 1
+            aoi_height = self.camera.AOIHeight # AOI size could be overwritten by binning setting, so read out again
+            aoi_height_min = self.camera.min_AOIHeight
+            aoi_height_max = self.camera.max_AOIHeight
+            aoi_top = self.camera.AOITop - 1 # AOI start position could be overwritten by binning setting, so read out again
+            aoi_top_min = self.camera.min_AOITop - 1
+            aoi_top_max = self.camera.max_AOITop - 1
             # camera will automatically vertically center AOI, if self.camera.VerticallyCenterAOI == True
 
         if aoi_binning != binning:
@@ -120,14 +141,14 @@ class AndorZL41Wave:
             aoi_width = self.camera.AOIWidth
             aoi_width_min = self.camera.min_AOIWidth
             aoi_width_max = self.camera.max_AOIWidth
-            aoi_left = self.cemera.AOILeft - 1 # AOI start position could be overwritten by size setting, so read out again
-            aoi_left_min = self.cemera.min_AOILeft - 1
-            aoi_left_max = self.cemera.max_AOILeft - 1
+            aoi_left = self.camera.AOILeft - 1 # AOI start position could be overwritten by size setting, so read out again
+            aoi_left_min = self.camera.min_AOILeft - 1
+            aoi_left_max = self.camera.max_AOILeft - 1
             if centered:
                 AOI_start = int((self.cam_sensor_size_horizontal - aoi_width * self.camera.AOIHBin) / 2)
                 AOI_start = np.clip(AOI_start, aoi_left_min, aoi_left_max)
-                self.cemera.AOILeft = AOI_start + 1
-                aoi_left = self.cemera.AOILeft - 1
+                self.camera.AOILeft = AOI_start + 1
+                aoi_left = self.camera.AOILeft - 1
                 if AOI_start != aoi_left:
                     logging.error(f"Failed to center AOI horizontally. AOI left should be {AOI_start}, but current value is {aoi_left}.")
 
@@ -141,9 +162,9 @@ class AndorZL41Wave:
             aoi_height = self.camera.AOIHeight
             aoi_height_min = self.camera.min_AOIHeight
             aoi_height_max = self.camera.max_AOIHeight
-            aoi_top = self.cemera.AOITop - 1 # AOI start position could be overwritten by size setting, so read out again
-            aoi_top_min = self.cemera.min_AOITop - 1
-            aoi_top_max = self.cemera.max_AOITop - 1
+            aoi_top = self.camera.AOITop - 1 # AOI start position could be overwritten by size setting, so read out again
+            aoi_top_min = self.camera.min_AOITop - 1
+            aoi_top_max = self.camera.max_AOITop - 1
             # camera will automatically vertically center AOI, if self.camera.VerticallyCenterAOI == True
 
         if direction == 'horizontal':
@@ -187,12 +208,12 @@ class AndorZL41Wave:
         if direction == 'horizontal':
             if aoi_left != index:
                 logging.error(f"Failed to set {direction} AOI starting pixel index to {index}. Current value is {aoi_left}.")
-            return aoi_left, aoi_left != index
+            return aoi_left, aoi_left == index
         else:
             # direction = 'vertical'
             if aoi_top != index:
                 logging.error(f"Failed to set {direction} AOI starting pixel index to {index}. Current value is {aoi_top}.")
-            return aoi_top, aoi_top != index
+            return aoi_top, aoi_top == index
         
     def set_AOI_centered(self, direction: str, centered: bool) -> tuple:
         """
@@ -215,18 +236,18 @@ class AndorZL41Wave:
             # direction = 'vertical'
             self.camera.VerticallyCenterAOI = centered
             actual_centered = self.camera.VerticallyCenterAOI
-            aoi_top = self.cemera.AOITop - 1
+            aoi_top = self.camera.AOITop - 1
             success = actual_centered == centered
 
         if direction == 'horizontal':
             if not success:
-                logging.warning(f"Failed to set {direction} AOI centered to {centered}." + \
+                logging.error(f"Failed to set {direction} AOI centered to {centered}." + \
                                 f"{direction} AOI starting pixel index is {aoi_left}.")
             return aoi_left, actual_centered, success
         else:
             # direction = 'vertical'
             if not success:
-                logging.warning(f"Failed to set {direction} AOI centered to {centered}." + \
+                logging.error(f"Failed to set {direction} AOI centered to {centered}." + \
                                 f"{direction} AOI starting pixel index is {aoi_top}.")
             return aoi_top, actual_centered, success
         
@@ -238,7 +259,7 @@ class AndorZL41Wave:
         assert mode in ['Rolling', 'Global']
         
         self.camera.ElectronicShutteringMode = mode
-        mode_actual = self.camera.ShutterMode
+        mode_actual = self.camera.ElectronicShutteringMode
 
         if mode_actual != mode:
             logging.error(f"Failed to set shutter mode to {mode}. Current value is {mode_actual}.")

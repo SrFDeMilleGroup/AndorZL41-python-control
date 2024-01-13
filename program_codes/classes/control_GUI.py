@@ -1,5 +1,5 @@
 from collections import deque
-import configparser, h5py, time, logging, os
+import logging
 import PyQt5.QtWidgets as qt
 import PyQt5.QtCore
 import numpy as np
@@ -16,7 +16,7 @@ class ControlGUI(Scrollarea):
         self.setMaximumWidth(400)
         self.frame.setContentsMargins(0,0,0,0)
 
-        self.cam = AndorZL41Wave(self)
+        self.camera = AndorZL41Wave(self)
 
         # boolean variable, turned on when the camera starts to take images
         self.active = False
@@ -28,7 +28,7 @@ class ControlGUI(Scrollarea):
         self.tcp_active = False
 
         # save signal count
-        self.signal_count_deque = deque([], maxlen=20)
+        self.signal_count_deque = deque([], maxlen=200)
 
         # places GUI elements
         self.place_recording_control()
@@ -757,7 +757,7 @@ class ControlGUI(Scrollarea):
 
         self.check_gaussian_fit_limit()
         self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False, 
-                                       update_image_size=True, update_max_interface_rate=True)
+                                       update_image_size=True, update_interface_rate=True)
 
     def set_hardware_roi_centered(self, direction, val):
 
@@ -788,11 +788,11 @@ class ControlGUI(Scrollarea):
             self.parent.config["camera_control"]["hardware_roi_top"] = str(aoi_top)
         
         self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                       update_image_size=False, update_max_interface_rate=False)
+                                       update_image_size=False, update_interface_rate=False)
 
     def set_hardware_roi_start(self, direction, val):
         if direction == "horizontal":
-            aoi_left, success = self.camera.set_AOI_start(direction, val, centered=self.parent.config.getboolean("camera_control", "hardware_roi_h_centered"))
+            aoi_left, success = self.camera.set_AOI_start_index(direction, val, centered=self.parent.config.getboolean("camera_control", "hardware_roi_h_centered"))
             self.parent.config["camera_control"]["hardware_roi_left"] = str(aoi_left)
             if not success:
                 self.hardware_roi_left_sb.blockSignals(True)
@@ -800,7 +800,7 @@ class ControlGUI(Scrollarea):
                 self.hardware_roi_left_sb.blockSignals(False)
         else:
             # direction == "vertical"
-            aoi_top, success = self.camera.set_AOI_start(direction, val, centered=self.parent.config.getboolean("camera_control", "hardware_roi_v_centered"))
+            aoi_top, success = self.camera.set_AOI_start_index(direction, val, centered=self.parent.config.getboolean("camera_control", "hardware_roi_v_centered"))
             self.parent.config["camera_control"]["hardware_roi_top"] = str(aoi_top)
             if not success:
                 self.hardware_roi_top_sb.blockSignals(True)
@@ -808,10 +808,10 @@ class ControlGUI(Scrollarea):
                 self.hardware_roi_top_sb.blockSignals(False)
         
         self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                       update_image_size=False, update_max_interface_rate=False)
+                                       update_image_size=False, update_interface_rate=False)
         
     def set_shutter_mode(self, val):
-        actual_mode, success = self.cam.set_shutter_mode(val)
+        actual_mode, success = self.camera.set_shutter_mode(val)
         self.parent.config["camera_control"]["shutter_mode"] = actual_mode
         if not success:
             self.shutter_mode_cb.blockSignals(True)
@@ -819,10 +819,10 @@ class ControlGUI(Scrollarea):
             self.shutter_mode_cb.blockSignals(False)
 
         self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                       update_image_size=False, update_max_interface_rate=False)
+                                       update_image_size=False, update_interface_rate=False)
 
     def set_trigger_mode(self, val):
-        actual_mode, success = self.cam.set_trigger_mode(val)
+        actual_mode, success = self.camera.set_trigger_mode(val)
         self.parent.config["camera_control"]["trigger_mode"] = actual_mode
         if not success:
             self.trigger_mode_cb.blockSignals(True)
@@ -830,10 +830,10 @@ class ControlGUI(Scrollarea):
             self.trigger_mode_cb.blockSignals(False)
 
         self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                        update_image_size=False, update_max_interface_rate=False)
+                                        update_image_size=False, update_interface_rate=False)
 
     def set_expo_overlap(self, val):
-        actual_val, success = self.cam.set_exposure_overlap(val)
+        actual_val, success = self.camera.set_exposure_overlap(val)
         self.parent.config["camera_control"]["exposure_overlap"] = str(actual_val)
         if not success:
             self.expo_overlap_chb.blockSignals(True)
@@ -841,16 +841,16 @@ class ControlGUI(Scrollarea):
             self.expo_overlap_chb.blockSignals(False)
 
         self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                        update_image_size=False, update_max_interface_rate=False)
+                                        update_image_size=False, update_interface_rate=False)
 
     def set_short_exposure(self, val):
         self.parent.config["camera_control"]["short_exposure"] = str(val)
 
         self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                        update_image_size=False, update_max_interface_rate=False)
+                                        update_image_size=False, update_interface_rate=False)
 
     def set_expo_time(self, time):
-        t, success = self.cam.set_exposure_time(time)
+        t, success = self.camera.set_exposure_time(time)
         self.parent.config["camera_control"]["exposure_time"] = str(t)
 
         if not success:
@@ -882,19 +882,19 @@ class ControlGUI(Scrollarea):
                 self.expo_time_dsb.setMinimum(min_expo_time)
 
         if update_frame_readout_time:
-            self.frame_readout_time_la.setText(":.3f".format(frame_readout_time))
+            self.frame_readout_time_la.setText("{:.3f}".format(frame_readout_time))
 
         if update_row_readout_time:
-            self.row_readout_time_la.setText(":.2f".format(row_readout_time))
+            self.row_readout_time_la.setText("{:.2f}".format(row_readout_time))
 
         if update_image_size:
-            self.image_size_bytes_la.setText(":.2f".format(self.camera.read_image_size()))
+            self.image_size_bytes_la.setText("{:.2f}".format(self.camera.read_image_size()))
 
         if update_interface_rate:
-            self.max_interface_rate_la.setText(":.2f".format(self.camera.read_interface_transfer_rate()))
+            self.max_interface_rate_la.setText("{:.2f}".format(self.camera.read_interface_transfer_rate()))
 
     def set_pixel_readout_rate(self, val):
-        actual_rate, success = self.cam.set_pixel_readout_rate(val)
+        actual_rate, success = self.camera.set_pixel_readout_rate(val)
         self.parent.config["camera_control"]["pixel_readout_rate"] = actual_rate
 
         if not success:
@@ -903,10 +903,10 @@ class ControlGUI(Scrollarea):
             self.pixel_readout_rate_cb.blockSignals(False)
 
         self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=True,
-                                        update_image_size=False, update_max_interface_rate=False)
+                                        update_image_size=False, update_interface_rate=False)
 
     def set_preamp_gain(self, val):
-        actual_gain, pixel_encoding, success = self.cam.set_preamp_gain(val)
+        actual_gain, pixel_encoding, success = self.camera.set_pre_amp_gain(val)
         self.parent.config["camera_control"]["preamp_gain"] = actual_gain
         if not success:
             self.preamp_gain_cb.blockSignals(True)
@@ -919,7 +919,7 @@ class ControlGUI(Scrollarea):
             self.pixel_encoding_cb.blockSignals(False)
 
     def set_pixel_encoding(self, val):
-        actual_encoding, success = self.cam.set_pixel_encoding(val)
+        actual_encoding, success = self.camera.set_pixel_encoding(val)
         self.parent.config["camera_control"]["pixel_encoding"] = actual_encoding
         if not success:
             self.pixel_encoding_cb.blockSignals(True)
@@ -927,10 +927,10 @@ class ControlGUI(Scrollarea):
             self.pixel_encoding_cb.blockSignals(False)
 
         self.update_expo_limit_and_rates(update_expo_time=False, update_frame_readout_time=False, update_row_readout_time=False,
-                                        update_image_size=True, update_max_interface_rate=True)
+                                        update_image_size=True, update_interface_rate=True)
 
-    def noise_filter(self, filter_type, val):
-        actual_val, success = self.cam.enable_noise_filter(filter_type, val)
+    def set_noise_filter(self, filter_type, val):
+        actual_val, success = self.camera.enable_noise_filter(filter_type, val)
 
         if filter_type == "spurious":
             self.parent.config["camera_control"]["spurious_noise_filter"] = str(actual_val)
@@ -947,7 +947,7 @@ class ControlGUI(Scrollarea):
                 self.blemish_correction_chb.blockSignals(False)
 
     def set_aux_out(self, out_num, val):
-        actual_out, success = self.cam.set_auxiliary_output(out_num, val)
+        actual_out, success = self.camera.set_auxiliary_output(out_num, val)
         self.parent.config["camera_control"][f"auxiliary_output_{out_num}"] = actual_out
 
         if not success:
@@ -962,7 +962,7 @@ class ControlGUI(Scrollarea):
                 self.aux_out_2_cb.blockSignals(False)
 
     def set_cam_cooling(self, cooling_type, val):
-        actual_val, success = self.cam.enable_cooler(cooling_type, val)
+        actual_val, success = self.camera.enable_cooler(cooling_type, val)
         self.parent.config["camera_control"][f"{cooling_type}_cooling"] = str(actual_val)
         if not success:
             if cooling_type == "sensor":
@@ -974,6 +974,9 @@ class ControlGUI(Scrollarea):
                 self.fan_cooling_chb.blockSignals(True)
                 self.fan_cooling_chb.setChecked(actual_val)
                 self.fan_cooling_chb.blockSignals(False)
+
+    def cam_reconnect(self):
+        pass
 
     def tcp_start(self):
         self.tcp_active = True
@@ -1059,4 +1062,4 @@ class ControlGUI(Scrollarea):
 
     def program_close(self):
         self.tcp_stop()
-        self.cam.close()
+        self.camera.close()

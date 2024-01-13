@@ -61,11 +61,11 @@ Other softwares
 - https://andor.oxinst.com/tools/third-party-software-matrix
 
 ## To-do
-- test buttons in control gui
 - start and close functions
-- dummy camera
+- dummy camera: exposure time in different shutter and trigger mode. overlap in different shutter and exposure mode.
+- reconnect camera
 - save/load program settings
 - acquisition thread
 - camera take multiple images and only readout at the end of the cycle
-- apply to Apogee camera
+- apply to Apogee camera (need to switch to Andor sdk2)
 - better readme.md file

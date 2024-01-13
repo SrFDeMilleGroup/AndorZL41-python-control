@@ -1,6 +1,5 @@
-import sys, os, time, configparser
+import sys, time, configparser
 import logging, traceback
-from PyQt5.QtCore import QByteArray
 import numpy as np
 import PyQt5
 import PyQt5.QtWidgets as qt
@@ -10,7 +9,6 @@ import h5py
 
 from program_codes.classes import ControlGUI, ImageGUI, AcquisitionThread
 from program_codes.gaussian_fit import gaussian_2d_fit
-from program_codes.widgets import ImageWidget
 
 # main class, parent of other classes
 class AndorGUI(qt.QMainWindow):
@@ -265,7 +263,7 @@ class AndorGUI(qt.QMainWindow):
             logging.error(f"(AndorGUI.update_software_roi_from_control) Invalid roi_type: {roi_type}")
             return
 
-        for name, image_widget in self.image_gui.image_widgets.items():
+        for name, image_widget in self.image_gui.signal_image_widget_list.items():
             if roi_type in ["xmin", "ymin"]:
                 image_widget.image_roi.blockSignals(True)
                 image_widget.image_roi.setPos(pos=(xmin, ymin))
@@ -277,9 +275,13 @@ class AndorGUI(qt.QMainWindow):
                 image_widget.image_roi.blockSignals(False)
 
         if roi_type in ["xmin", "xmax"]:
+            self.image_gui.x_plot_lr.blockSignals(True)
             self.image_gui.x_plot_lr.setRegion([xmin, xmax])
+            self.image_gui.x_plot_lr.blockSignals(False)
         elif roi_type in ["ymin", "ymax"]:
+            self.image_gui.y_plot_lr.blockSignals(True)
             self.image_gui.y_plot_lr.setRegion([ymin, ymax])
+            self.image_gui.y_plot_lr.blockSignals(False)
             
     def update_software_roi_in_control(self, roi_type, xmin, xmax, ymin, ymax):
         if roi_type not in ["x", "y", "all"]:
@@ -313,19 +315,19 @@ class AndorGUI(qt.QMainWindow):
             logging.error(f"(AndorGUI.update_roi_bound_in_image) Invalid bound_type: {bound_type}")
             return
         
-        for name, image_widget in self.image_gui.image_widgets.items():
+        for name, image_widget in self.image_gui.signal_image_widget_list.items():
             image_widget.image_roi.blockSignals(True)
             image_widget.image_roi.setBounds(pos=[0, 0], size=[xbound, ybound])
             image_widget.image_roi.blockSignals(False) 
 
         if bound_type == "x":
-            self.image_gui.x_plot_lr.blockLineSignals(True)
+            self.image_gui.x_plot_lr.blockSignals(True)
             self.image_gui.x_plot_lr.setRegion([0, xbound])
-            self.image_gui.x_plot_lr.blockLineSignals(False)
+            self.image_gui.x_plot_lr.blockSignals(False)
         elif bound_type == "y":
-            self.image_gui.y_plot_lr.blockLineSignals(True)
+            self.image_gui.y_plot_lr.blockSignals(True)
             self.image_gui.y_plot_lr.setRegion([0, ybound])
-            self.image_gui.y_plot_lr.blockLineSignals(False)
+            self.image_gui.y_plot_lr.blockSignals(False)
 
     def save_settings(self, latest=False):
         if latest:
