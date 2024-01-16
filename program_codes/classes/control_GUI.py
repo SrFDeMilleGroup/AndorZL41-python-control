@@ -39,7 +39,6 @@ class ControlGUI(Scrollarea):
 
         # don't start tcp thread here, 
         # it will be started when the program load latest setting (using load_settings(latest=true))
-        
         # self.tcp_start()
 
     # place recording gui elements
@@ -73,7 +72,7 @@ class ControlGUI(Scrollarea):
         for j, i in enumerate(op):
             meas_rb = qt.QRadioButton(i)
             meas_rb.setFixedHeight(30)
-            meas_rb.setChecked(True if i == self.parent.config["record_control"]["meas_mode"] else False)
+            meas_rb.setChecked(True if j == 0 else False)
             meas_rb.toggled[bool].connect(lambda val, rb=meas_rb: self.update_config("record_control", "meas_mode", (rb.text(), val)))
             self.meas_rblist.append(meas_rb)
             meas_bg.addButton(meas_rb)
@@ -81,24 +80,21 @@ class ControlGUI(Scrollarea):
 
         # display signal count in real time
         record_frame.addWidget(qt.QLabel("Signal count:"), 2, 0, 1, 1)
-        self.signal_count = qt.QLabel()
-        self.signal_count.setText("0")
+        self.signal_count = qt.QLabel("0")
         self.signal_count.setStyleSheet("QLabel{background-color: gray; font: 20pt}")
         self.signal_count.setToolTip("Singal after bkg subtraction or OD")
         record_frame.addWidget(self.signal_count, 2, 1, 1, 2)
 
         # display mean of signal count in real time in "record" mode
         record_frame.addWidget(qt.QLabel("Singal mean:"), 3, 0, 1, 1)
-        self.signal_count_mean = qt.QLabel()
-        self.signal_count_mean.setText("0")
+        self.signal_count_mean = qt.QLabel("0")
         self.signal_count_mean.setStyleSheet("QLabel{background-color: gray; font: 20pt}")
         self.signal_count_mean.setToolTip("Singal after bkg subtraction or OD")
         record_frame.addWidget(self.signal_count_mean, 3, 1, 1, 2)
 
         # display standard deviation of signal count in real time in "record" mode
         record_frame.addWidget(qt.QLabel("Signal error:"), 4, 0, 1, 1)
-        self.signal_count_std = qt.QLabel()
-        self.signal_count_std.setText("0")
+        self.signal_count_std = qt.QLabel("0")
         self.signal_count_std.setStyleSheet("QLabel{background-color: gray; font: 20pt}")
         self.signal_count_std.setToolTip("Singal after bkg subtraction or OD")
         record_frame.addWidget(self.signal_count_std, 4, 1, 1, 2)
@@ -112,21 +108,14 @@ class ControlGUI(Scrollarea):
         self.frame.addWidget(img_ctrl_box)
 
         # a spinbox to set number of images to take in next run
-        self.num_image_sb = NewSpinBox(range=(1, self.parent.config.getint("image_control", "num_image_max")), suffix=None)
-        self.num_image_sb.setValue(self.parent.config.getint("image_control", "num_image"))
+        self.num_image_sb = NewSpinBox(range=(1, 1000000), suffix=None)
         self.num_image_sb.valueChanged[int].connect(lambda val: self.update_config("image_control", "num_image", val))
         img_ctrl_frame.addRow("Num of image to take:", self.num_image_sb)
 
         # spinboxes to set image region of interest in x
-        self.software_roi_xmin_sb = NewSpinBox(range=(0, 
-                                                       self.parent.config.getint("image_control", "software_roi_xmax")), 
-                                                suffix=None)
-        self.software_roi_xmin_sb.setValue(self.parent.config.getint("image_control", "software_roi_xmin"))
+        self.software_roi_xmin_sb = NewSpinBox(range=(0, 0), suffix=None)
         self.software_roi_xmin_sb.setToolTip("Software ROI xmin")
-        self.software_roi_xmax_sb = NewSpinBox(range=(self.parent.config.getint("image_control", "software_roi_xmin"), 
-                                                        self.parent.config.getint("camera_control", "hardware_roi_width") - 1), 
-                                                suffix=None)
-        self.software_roi_xmax_sb.setValue(self.parent.config.getint("image_control", "software_roi_xmax"))
+        self.software_roi_xmax_sb = NewSpinBox(range=(0, 0), suffix=None)
         self.software_roi_xmax_sb.setToolTip("Software ROI xmax")
         self.software_roi_xmin_sb.valueChanged[int].connect(lambda val, roi_type='xmin': self.set_software_roi(roi_type, val))
         self.software_roi_xmax_sb.valueChanged[int].connect(lambda val, roi_type='xmax': self.set_software_roi(roi_type, val))
@@ -140,15 +129,9 @@ class ControlGUI(Scrollarea):
         img_ctrl_frame.addRow("Software ROI (x):", x_range_box)
 
         # spinboxes to set image region of interest in y
-        self.software_roi_ymin_sb = NewSpinBox(range=(0, 
-                                                        self.parent.config.getint("image_control", "software_roi_ymax")), 
-                                                suffix=None)
-        self.software_roi_ymin_sb.setValue(self.parent.config.getint("image_control", "software_roi_ymin"))
+        self.software_roi_ymin_sb = NewSpinBox(range=(0, 0), suffix=None)
         self.software_roi_ymin_sb.setToolTip("Software ROI ymin")
-        self.software_roi_ymax_sb = NewSpinBox(range=(self.parent.config.getint("image_control", "software_roi_ymax"), 
-                                                     self.parent.config.getint("camera_control", "hardware_roi_height") - 1), 
-                                              suffix=None)
-        self.software_roi_ymax_sb.setValue(self.parent.config.getint("image_control", "software_roi_ymax"))
+        self.software_roi_ymax_sb = NewSpinBox(range=(0, 0), suffix=None)
         self.software_roi_ymax_sb.setToolTip("Software ROI ymax")
         self.software_roi_ymin_sb.valueChanged[int].connect(lambda val, roi_type='ymin': self.set_software_roi(roi_type, val))
         self.software_roi_ymax_sb.valueChanged[int].connect(lambda val, roi_type='ymax': self.set_software_roi(roi_type, val))
@@ -169,12 +152,10 @@ class ControlGUI(Scrollarea):
 
         # set hdf group name and whether to save image to a hdf file
         self.run_name_le = qt.QLineEdit()
-        self.run_name_le.setText(self.parent.config.get("image_control", "run_name"))
         self.run_name_le.editingFinished.connect(lambda le=self.run_name_le: self.update_config("image_control", "run_name", le.text()))
         self.run_name_le.setToolTip("HDF group name/run name")
         self.img_save_chb = qt.QCheckBox()
         self.img_save_chb.setTristate(False)
-        self.img_save_chb.setChecked(self.parent.config.getboolean("image_control", "image_auto_save"))
         self.img_save_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.img_save_chb.clicked[bool].connect(lambda val: self.update_config("image_control", "image_auto_save", val))
         img_save_box = qt.QWidget()
@@ -190,14 +171,12 @@ class ControlGUI(Scrollarea):
         # set whether to apply gaussian filter
         self.gaussian_filter_chb = qt.QCheckBox()
         self.gaussian_filter_chb.setTristate(False)
-        self.gaussian_filter_chb.setChecked(self.parent.config.getboolean("image_control", "gaussian_filter"))
         self.gaussian_filter_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.gaussian_filter_chb.clicked[bool].connect(lambda val: self.update_config("image_control", "gaussian_filter", val))
         img_ctrl_frame.addRow("Gaussian filter:", self.gaussian_filter_chb)
 
         # spinboxes to set gaussian filter sigma
         self.gaussian_filter_sigma_dsb = NewDoubleSpinBox(range=(0.01, 10000), decimals=2, suffix=None)
-        self.gaussian_filter_sigma_dsb.setValue(self.parent.config.getfloat("image_control", "gaussian_filter_sigma"))
         self.gaussian_filter_sigma_dsb.valueChanged[float].connect(lambda val: self.update_config("image_control", "gaussian_filter_sigma", val))
         img_ctrl_frame.addRow("Gaussian filter sigma:", self.gaussian_filter_sigma_dsb)
 
@@ -206,11 +185,8 @@ class ControlGUI(Scrollarea):
         # set whether to do gaussian fit in real time
         self.gaussian_fit_chb = qt.QCheckBox()
         self.gaussian_fit_chb.setTristate(False)
-        self.gaussian_fit_chb.setChecked(self.parent.config.getboolean("image_control", "gaussian_fit"))
         self.gaussian_fit_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.gaussian_fit_chb.clicked[bool].connect(lambda val: self.update_config("image_control", "gaussian_fit", val))
-        l = max(self.parent.config.getint("image_control", "gaussian_fit_cpu_limit"), self.parent.config.getint("image_control", "gaussian_fit_gpu_limit"))
-        self.gaussian_fit_chb.setToolTip(f"Can only be enabled when image size less than {l} pixels.")
         img_ctrl_frame.addRow("2D gaussian fit:", self.gaussian_fit_chb)
 
         # display 2D gaussian fit results
@@ -270,10 +246,8 @@ class ControlGUI(Scrollarea):
 
         # set ROI
         self.hardware_bin_h_sb = NewSpinBox(range=(1, 640), suffix=None)
-        self.hardware_bin_h_sb.setValue(self.parent.config.getint("camera_control", "hardware_bin_h"))
         self.hardware_bin_h_sb.setToolTip("Hardware binning horizontal")
         self.hardware_bin_v_sb = NewSpinBox(range=(1, 2160), suffix=None)
-        self.hardware_bin_v_sb.setValue(self.parent.config.getint("camera_control", "hardware_bin_v"))
         self.hardware_bin_v_sb.setToolTip("Hardware binning vertical")
         self.hardware_bin_h_sb.valueChanged[int].connect(lambda val: self.set_hardware_roi_size(roi_type="binning", direction="horizontal", val=val))
         self.hardware_bin_v_sb.valueChanged[int].connect(lambda val: self.set_hardware_roi_size(roi_type="binning", direction="vertical", val=val))
@@ -288,13 +262,11 @@ class ControlGUI(Scrollarea):
 
         self.hardware_roi_h_centered_chb = qt.QCheckBox()
         self.hardware_roi_h_centered_chb.setTristate(False)
-        self.hardware_roi_h_centered_chb.setChecked(self.parent.config.getboolean("camera_control", "hardware_roi_h_centered"))
         self.hardware_roi_h_centered_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.hardware_roi_h_centered_chb.clicked[bool].connect(lambda val: self.set_hardware_roi_centered(direction="horizontal", val=val))
         self.hardware_roi_h_centered_chb.setToolTip("Hardware ROI centered horizontally")
         self.hardware_roi_v_centered_chb = qt.QCheckBox()
         self.hardware_roi_v_centered_chb.setTristate(False)
-        self.hardware_roi_v_centered_chb.setChecked(self.parent.config.getboolean("camera_control", "hardware_roi_v_centered"))
         self.hardware_roi_v_centered_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.hardware_roi_v_centered_chb.clicked[bool].connect(lambda val: self.set_hardware_roi_centered(direction="vertical", val=val))
         self.hardware_roi_v_centered_chb.setToolTip("Hardware ROI centered vertically")
@@ -308,11 +280,9 @@ class ControlGUI(Scrollarea):
         cam_ctrl_frame.addRow("HW ROI centered H & V:", roi_center_box)
 
         self.hardware_roi_left_sb = NewSpinBox(range=(0, 2559), suffix=None)
-        self.hardware_roi_left_sb.setValue(self.parent.config.getint("camera_control", "hardware_roi_left"))
         self.hardware_roi_left_sb.valueChanged[int].connect(lambda val: self.set_hardware_roi_start(direction="horizontal", val=val))
         self.hardware_roi_left_sb.setToolTip("Hardware ROI left")
         self.hardware_roi_top_sb = NewSpinBox(range=(0, 2159), suffix=None)
-        self.hardware_roi_top_sb.setValue(self.parent.config.getint("camera_control", "hardware_roi_top"))
         self.hardware_roi_top_sb.valueChanged[int].connect(lambda val: self.set_hardware_roi_start(direction="vertical", val=val))
         self.hardware_roi_top_sb.setToolTip("Hardware ROI top")
         roi_start_box = qt.QWidget()
@@ -325,7 +295,6 @@ class ControlGUI(Scrollarea):
         cam_ctrl_frame.addRow("HW ROI start H & V:", roi_start_box)
 
         self.hardware_roi_width_sb = NewSpinBox(range=(1, 2560), suffix=None)
-        self.hardware_roi_width_sb.setValue(self.parent.config.getint("camera_control", "hardware_roi_width"))
         self.hardware_roi_width_sb.valueChanged[int].connect(lambda val: self.set_hardware_roi_size(roi_type="size", direction="horizontal", val=val))
         self.hardware_roi_width_sb.setToolTip("Width in binned pixels")
         self.hardware_roi_width_unbinned_la = qt.QLabel("2560")
@@ -341,7 +310,6 @@ class ControlGUI(Scrollarea):
         cam_ctrl_frame.addRow("HW ROI width:", roi_width_box)
 
         self.hardware_roi_height_sb = NewSpinBox(range=(1, 2160), suffix=None)
-        self.hardware_roi_height_sb.setValue(self.parent.config.getint("camera_control", "hardware_roi_height"))
         self.hardware_roi_height_sb.valueChanged[int].connect(lambda val: self.set_hardware_roi_size(roi_type="size",direction="vertical" , val=val))
         self.hardware_roi_height_sb.setToolTip("Height in binned pixels")
         self.hardware_roi_height_unbinned_la = qt.QLabel("2160")
@@ -359,14 +327,13 @@ class ControlGUI(Scrollarea):
         cam_ctrl_frame.addRow("------------------", qt.QWidget())
 
         # set shutter, trigger, and exposure
-        self.shutter_mode_cb = NewComboBox(item_list=["Rolling", "Global"], current_item=self.parent.config.get("camera_control", "shutter_mode"))
+        self.shutter_mode_cb = NewComboBox(item_list=["Rolling", "Global"])
         self.shutter_mode_cb.setMaximumWidth(200)
         self.shutter_mode_cb.setMaximumHeight(20)
         self.shutter_mode_cb.currentTextChanged[str].connect(lambda val: self.set_shutter_mode(val))
         cam_ctrl_frame.addRow("Shutter mode:", self.shutter_mode_cb)
 
-        self.trigger_mode_cb = NewComboBox(item_list=["Internal", "Software", "External", "External Exposure", "External Start"], 
-                                           current_item=self.parent.config.get("camera_control", "trigger_mode"))
+        self.trigger_mode_cb = NewComboBox(item_list=["Internal", "Software", "External", "External Exposure", "External Start"])
         self.trigger_mode_cb.setMaximumWidth(200)
         self.trigger_mode_cb.setMaximumHeight(20)
         self.trigger_mode_cb.currentTextChanged[str].connect(lambda val: self.set_trigger_mode(val))
@@ -374,27 +341,35 @@ class ControlGUI(Scrollarea):
 
         self.expo_overlap_chb = qt.QCheckBox()
         self.expo_overlap_chb.setTristate(False)
-        self.expo_overlap_chb.setChecked(self.parent.config.getboolean("camera_control", "exposure_overlap"))
         self.expo_overlap_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.expo_overlap_chb.clicked[bool].connect(lambda val: self.set_expo_overlap(val))
         cam_ctrl_frame.addRow("Exposure overlap:", self.expo_overlap_chb)
 
-        self.short_exposure_chb = qt.QCheckBox()
-        self.short_exposure_chb.setTristate(False)  
-        self.short_exposure_chb.setChecked(self.parent.config.getboolean("camera_control", "short_exposure"))
-        self.short_exposure_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
-        self.short_exposure_chb.clicked[bool].connect(lambda val: self.set_short_exposure(val))
-        self.short_exposure_chb.setToolTip("If checked, in global shutter and external trigger mode, " + \
-                                           "exposure time can be set to less than frame raedout time. " + \
-                                            "The camera will auto delay the exposure by frame readout time.")
-        cam_ctrl_frame.addRow("Short exposure:", self.short_exposure_chb)
+        self.long_exposure_la = qt.QLabel("0")
+        self.long_exposure_la.setStyleSheet("QLabel{background-color: gray;}")
+        self.long_exposure_la.setToolTip("Exposure time above which it's considered in long exposure mode.")
+        self.long_exposure_chb = qt.QCheckBox()
+        self.long_exposure_chb.setTristate(False)  
+        self.long_exposure_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
+        self.long_exposure_chb.clicked[bool].connect(lambda val: self.set_long_exposure(val))
+        self.long_exposure_chb.setToolTip("Enable long exposure mode.")
+        long_exposure_box = qt.QWidget()
+        long_exposure_layout = qt.QHBoxLayout()
+        long_exposure_layout.setContentsMargins(0,0,0,0)
+        long_exposure_box.setLayout(long_exposure_layout)
+        long_exposure_layout.addWidget(self.long_exposure_la)
+        long_exposure_layout.addWidget(self.long_exposure_chb)
+        cam_ctrl_frame.addRow("Long exposure:", long_exposure_box)
 
         self.expo_time_dsb = NewDoubleSpinBox(range=(0.005, 10000), decimals=3, suffix=None)
-        self.expo_time_dsb.setValue(self.parent.config.getfloat("camera_control", "exposure_time"))
         self.expo_time_dsb.valueChanged[float].connect(lambda val: self.set_expo_time(val))
         cam_ctrl_frame.addRow("Exposure time (ms):", self.expo_time_dsb)
 
-        self.pixel_readout_rate_cb = NewComboBox(item_list=["100 MHz", "280 MHz"], current_item=self.parent.config.get("camera_control", "pixel_readout_rate"))
+        self.trigger_delay_la = qt.QLabel("0")
+        self.trigger_delay_la.setStyleSheet("QLabel{background-color: gray;}")
+        cam_ctrl_frame.addRow("Trigger delay (ms):", self.trigger_delay_la)
+
+        self.pixel_readout_rate_cb = NewComboBox(item_list=["100 MHz", "280 MHz"])
         self.pixel_readout_rate_cb.setMaximumWidth(200)
         self.pixel_readout_rate_cb.setMaximumHeight(20)
         self.pixel_readout_rate_cb.currentTextChanged[str].connect(lambda val: self.set_pixel_readout_rate(val))
@@ -411,15 +386,13 @@ class ControlGUI(Scrollarea):
         cam_ctrl_frame.addRow("------------------", qt.QWidget())
 
         # set pixel encoding
-        self.preamp_gain_cb = NewComboBox(item_list=["12-bit (low noise)", "12-bit (high well capacity)", "16-bit (low noise & high well capacity)"], 
-                                          current_item=self.parent.config.get("camera_control", "preamp_gain"))
+        self.preamp_gain_cb = NewComboBox(item_list=["12-bit (low noise)", "12-bit (high well capacity)", "16-bit (low noise & high well capacity)"])
         self.preamp_gain_cb.setMaximumWidth(200)
         self.preamp_gain_cb.setMaximumHeight(20)
         self.preamp_gain_cb.currentTextChanged[str].connect(lambda val: self.set_preamp_gain(val))
         cam_ctrl_frame.addRow("PreAmp gain:", self.preamp_gain_cb)
 
-        self.pixel_encoding_cb = NewComboBox(item_list=["Mono12", "Mono12Packed","Mono16", "Mono32"], 
-                                             current_item=self.parent.config.get("camera_control", "pixel_encoding"))
+        self.pixel_encoding_cb = NewComboBox(item_list=["Mono12", "Mono12Packed","Mono16", "Mono32"])
         self.pixel_encoding_cb.setMaximumWidth(200)
         self.pixel_encoding_cb.setMaximumHeight(20)
         self.pixel_encoding_cb.currentTextChanged[str].connect(lambda val: self.set_pixel_encoding(val))
@@ -439,14 +412,12 @@ class ControlGUI(Scrollarea):
 
         self.spurious_noise_filter_chb = qt.QCheckBox()
         self.spurious_noise_filter_chb.setTristate(False)
-        self.spurious_noise_filter_chb.setChecked(self.parent.config.getboolean("camera_control", "spurious_noise_filter"))
         self.spurious_noise_filter_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.spurious_noise_filter_chb.clicked[bool].connect(lambda val: self.set_noise_filter("spurious", val))
         cam_ctrl_frame.addRow("Spurious noise filter:", self.spurious_noise_filter_chb)
 
         self.blemish_correction_chb = qt.QCheckBox()
         self.blemish_correction_chb.setTristate(False)
-        self.blemish_correction_chb.setChecked(self.parent.config.getboolean("camera_control", "blemish_correction"))
         self.blemish_correction_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.blemish_correction_chb.clicked[bool].connect(lambda val: self.set_noise_filter("blemish", val))
         cam_ctrl_frame.addRow("Blemish correction:", self.blemish_correction_chb)
@@ -454,15 +425,13 @@ class ControlGUI(Scrollarea):
         cam_ctrl_frame.addRow("------------------", qt.QWidget())
 
         # set auxiliary TTL output
-        self.aux_out_1_cb = NewComboBox(item_list=["FireRow1", "FireRowN", "FireAll", "FireAny"], 
-                                        current_item=self.parent.config.get("camera_control", "auxiliary_output_1"))
+        self.aux_out_1_cb = NewComboBox(item_list=["FireRow1", "FireRowN", "FireAll", "FireAny"])
         self.aux_out_1_cb.setMaximumWidth(200)
         self.aux_out_1_cb.setMaximumHeight(20)
         self.aux_out_1_cb.currentTextChanged[str].connect(lambda val: self.set_aux_out(1, val))
         cam_ctrl_frame.addRow("Auxiliary output 1:", self.aux_out_1_cb)
 
-        self.aux_out_2_cb = NewComboBox(item_list=["ExternalShutterControl", "FrameClock", "RowClock", "ExposedRowClock"], 
-                                        current_item=self.parent.config.get("camera_control", "auxiliary_output_2"))
+        self.aux_out_2_cb = NewComboBox(item_list=["ExternalShutterControl", "FrameClock", "RowClock", "ExposedRowClock"])
         self.aux_out_2_cb.setMaximumWidth(200)
         self.aux_out_2_cb.setMaximumHeight(20)
         self.aux_out_2_cb.currentTextChanged[str].connect(lambda val: self.set_aux_out(2, val))
@@ -473,14 +442,12 @@ class ControlGUI(Scrollarea):
         # set cooling
         self.fan_cooling_chb = qt.QCheckBox()
         self.fan_cooling_chb.setTristate(False)
-        self.fan_cooling_chb.setChecked(self.parent.config.getboolean("camera_control", "fan_cooling"))
         self.fan_cooling_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.fan_cooling_chb.clicked[bool].connect(lambda val: self.set_cam_cooling("fan", val))
         cam_ctrl_frame.addRow("Fan cooling:", self.fan_cooling_chb)
 
         self.sensor_cooling_chb = qt.QCheckBox()
         self.sensor_cooling_chb.setTristate(False)
-        self.sensor_cooling_chb.setChecked(self.parent.config.getboolean("camera_control", "sensor_cooling"))
         self.sensor_cooling_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.sensor_cooling_chb.clicked[bool].connect(lambda val: self.set_cam_cooling("sensor", val))
         cam_ctrl_frame.addRow("Sensor cooling:", self.sensor_cooling_chb)
@@ -505,8 +472,10 @@ class ControlGUI(Scrollarea):
         tcp_ctrl_box.setLayout(tcp_ctrl_frame)
         self.frame.addWidget(tcp_ctrl_box)
 
-        server_host = self.parent.config["tcp_control"]["host_addr"]
-        server_port = self.parent.config["tcp_control"]["port"]
+        # server_host = self.parent.config["tcp_control"]["host_addr"]
+        # server_port = self.parent.config["tcp_control"]["port"]
+        server_host = "N/A"
+        server_port = "N/A"
         self.server_addr_la = qt.QLabel(server_host+" ("+server_port+")")
         self.server_addr_la.setStyleSheet("QLabel{background-color: gray;}")
         self.server_addr_la.setToolTip("server = this PC")
@@ -533,14 +502,11 @@ class ControlGUI(Scrollarea):
         self.frame.addWidget(self.save_load_box)
 
         self.filename_le = qt.QLineEdit()
-        default_file_name = self.parent.config["save_load_control"]["filename_to_save"]
-        self.filename_le.setText(default_file_name)
         self.filename_le.editingFinished.connect(lambda le = self.filename_le: self.update_config("save_load_control", "filename_to_save", le.text()))
         save_load_frame.addRow("File name to save:", self.filename_le)
 
         self.date_time_chb = qt.QCheckBox()
         self.date_time_chb.setTristate(False)
-        self.date_time_chb.setChecked(self.parent.config["save_load_control"].getboolean("append_datetime"))
         self.date_time_chb.setStyleSheet("QCheckBox::indicator {width: 15px; height: 15px;}")
         self.date_time_chb.clicked[bool].connect(lambda val: self.update_config("save_load_control", "append_datetime", val))
         save_load_frame.addRow("Auto append time:", self.date_time_chb)
@@ -689,7 +655,7 @@ class ControlGUI(Scrollarea):
                                                   xbound=aoi_width,
                                                   ybound=self.parent.config.getint("camera_control", "hardware_roi_height"))
             
-            self.parent.update_software_roi_in_image("xmin", # cal this function once, it will update both xmin and xmax
+            self.parent.update_software_roi_in_image("xmin", # call this function once, it will update both xmin and xmax
                                                       xmin=self.parent.config.getint("image_control", "software_roi_xmin"),
                                                       xmax=self.parent.config.getint("image_control", "software_roi_xmax"),
                                                       ymin=self.parent.config.getint("image_control", "software_roi_ymin"),
@@ -748,7 +714,7 @@ class ControlGUI(Scrollarea):
                                                   xbound=self.parent.config.getint("camera_control", "hardware_roi_width"),
                                                   ybound=aoi_height)
             
-            self.parent.update_software_roi_in_image("ymin", # cal this function once, it will update both ymin and ymax
+            self.parent.update_software_roi_in_image("ymin", # call this function once, it will update both ymin and ymax
                                                       xmin=self.parent.config.getint("image_control", "software_roi_xmin"),
                                                       xmax=self.parent.config.getint("image_control", "software_roi_xmax"),
                                                       ymin=self.parent.config.getint("image_control", "software_roi_ymin"),
@@ -756,8 +722,8 @@ class ControlGUI(Scrollarea):
 
 
         self.check_gaussian_fit_limit()
-        self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False, 
-                                       update_image_size=True, update_interface_rate=True)
+        self.update_expo_limit_and_rates(update_overlap_mode=False, update_expo_time=True, update_frame_readout_time=True, 
+                                         update_row_readout_time=False, update_image_size=True, update_interface_rate=True)
 
     def set_hardware_roi_centered(self, direction, val):
 
@@ -787,8 +753,8 @@ class ControlGUI(Scrollarea):
             self.hardware_roi_top_sb.blockSignals(False)
             self.parent.config["camera_control"]["hardware_roi_top"] = str(aoi_top)
         
-        self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                       update_image_size=False, update_interface_rate=False)
+        self.update_expo_limit_and_rates(update_overlap_mode=False, update_expo_time=True, update_frame_readout_time=True, 
+                                         update_row_readout_time=False, update_image_size=False, update_interface_rate=False)
 
     def set_hardware_roi_start(self, direction, val):
         if direction == "horizontal":
@@ -807,8 +773,8 @@ class ControlGUI(Scrollarea):
                 self.hardware_roi_top_sb.setValue(aoi_top)
                 self.hardware_roi_top_sb.blockSignals(False)
         
-        self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                       update_image_size=False, update_interface_rate=False)
+        self.update_expo_limit_and_rates(update_overlap_mode=False, update_expo_time=True, update_frame_readout_time=True, 
+                                         update_row_readout_time=False, update_image_size=False, update_interface_rate=False)
         
     def set_shutter_mode(self, val):
         actual_mode, success = self.camera.set_shutter_mode(val)
@@ -818,8 +784,8 @@ class ControlGUI(Scrollarea):
             self.shutter_mode_cb.setCurrentText(actual_mode)
             self.shutter_mode_cb.blockSignals(False)
 
-        self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                       update_image_size=False, update_interface_rate=False)
+        self.update_expo_limit_and_rates(update_overlap_mode=True, update_expo_time=True, update_frame_readout_time=True, 
+                                         update_row_readout_time=False, update_image_size=False, update_interface_rate=False)
 
     def set_trigger_mode(self, val):
         actual_mode, success = self.camera.set_trigger_mode(val)
@@ -829,25 +795,25 @@ class ControlGUI(Scrollarea):
             self.trigger_mode_cb.setCurrentText(actual_mode)
             self.trigger_mode_cb.blockSignals(False)
 
-        self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                        update_image_size=False, update_interface_rate=False)
+        self.update_expo_limit_and_rates(update_overlap_mode=True, update_expo_time=True, update_frame_readout_time=True, 
+                                         update_row_readout_time=False, update_image_size=False, update_interface_rate=False)
 
     def set_expo_overlap(self, val):
-        actual_val, success = self.camera.set_exposure_overlap(val)
+        exist, actual_val, success = self.camera.set_exposure_overlap(val)
         self.parent.config["camera_control"]["exposure_overlap"] = str(actual_val)
         if not success:
             self.expo_overlap_chb.blockSignals(True)
             self.expo_overlap_chb.setChecked(actual_val)
             self.expo_overlap_chb.blockSignals(False)
 
-        self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                        update_image_size=False, update_interface_rate=False)
+        self.update_expo_limit_and_rates(update_overlap_mode=False, update_expo_time=True, update_frame_readout_time=True, 
+                                         update_row_readout_time=False, update_image_size=False, update_interface_rate=False)
 
-    def set_short_exposure(self, val):
-        self.parent.config["camera_control"]["short_exposure"] = str(val)
+    def set_long_exposure(self, val):
+        self.parent.config["camera_control"]["long_exposure"] = str(val)
 
-        self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=False,
-                                        update_image_size=False, update_interface_rate=False)
+        self.update_expo_limit_and_rates(update_overlap_mode=False, update_expo_time=True, update_frame_readout_time=True, 
+                                         update_row_readout_time=False, update_image_size=False, update_interface_rate=False)
 
     def set_expo_time(self, time):
         t, success = self.camera.set_exposure_time(time)
@@ -858,33 +824,71 @@ class ControlGUI(Scrollarea):
             self.expo_time_dsb.setValue(t)
             self.expo_time_dsb.blockSignals(False)
 
-    def update_expo_limit_and_rates(self, update_expo_time, 
+    def update_expo_limit_and_rates(self, update_overlap_mode,
+                                        update_expo_time, 
                                         update_frame_readout_time, 
                                         update_row_readout_time, 
                                         update_image_size, 
                                         update_interface_rate):
-        
-        if update_expo_time or update_frame_readout_time:
-            frame_readout_time = self.camera.read_readout_time("frame")
-
-        if update_expo_time or update_row_readout_time:
-            row_readout_time = self.camera.read_readout_time("row")
+        if update_overlap_mode:
+            if not self.camera.read_overlap_writable:
+                # if overlap mode is not writable in the current shutter and trigger mode
+                # overlap is fixed to be false
+                if self.expo_overlap_chb.isEnabled():
+                    self.expo_overlap_chb.setEnabled(False)
+                if self.expo_overlap_chb.isChecked():
+                    self.expo_overlap_chb.blockSignals(False)
+                    self.expo_overlap_chb.setChecked(False)
+                    self.expo_overlap_chb.blockSignals(True)
+                    # self.parent.config["camera_control"]["exposure_overlap"] = "False"
+            else:
+                if not self.expo_overlap_chb.isEnabled():
+                    self.expo_overlap_chb.setEnabled(True)
+                self.expo_overlap_chb.setChecked(self.parent.config.getboolean("camera_control", "exposure_overlap"))
 
         if update_expo_time:
-            if self.parent.config.get("camera_control", "shutter_mode") == "Global" and \
-            self.parent.config.get("camera_control", "trigger_mode") == "External" and \
-            self.parent.config.getboolean("camera_control", "exposure_overlap") == False and \
-            self.parent.config.getboolean("camera_control", "short_exposure") == False:
-                t = frame_readout_time + row_readout_time / 1e3 * 5 # convert to ms
-                self.expo_time_dsb.setMinimum(t)
+            min_expo_time, max_expo_time = self.camera.read_exposre_time_range()
+            exist, long_expo = self.camera.read_long_exposure_time()
+            if exist:
+                # if short exposure mode exists in the current shutter and trigger mode
+                if not self.long_exposure_chb.isEnabled(): 
+                    self.long_exposure_chb.setEnabled(True)
+                self.long_exposure_la.setText("{:.3f}".format(long_expo))
+                if self.parent.config.getboolean("camera_control", "long_exposure"):
+                    self.expo_time_dsb.setMinimum(long_expo)
+                    self.expo_time_dsb.setMaximum(max_expo_time)
+                else:
+                    self.expo_time_dsb.setMinimum(min_expo_time)
+                    self.expo_time_dsb.setMaximum(long_expo)
             else:
-                min_expo_time, max_expo_time = self.camera.read_exposre_time_range()
+                # if short exposure mode doesn't exist in the current shutter and trigger mode, make it long exposure mode by default
+                if self.long_exposure_chb.isEnabled():
+                    self.long_exposure_chb.setEnabled(False)
+                self.long_exposure_la.setText("N/A")
                 self.expo_time_dsb.setMinimum(min_expo_time)
+                self.expo_time_dsb.setMaximum(max_expo_time)
+
+            delay_min, delay_max = self.camera.read_trigger_delay(self.parent.config.getboolean("camera_control", "long_exposure"))
+            if delay_min == None:
+                # in Internal, Software or External Start trigger mode
+                self.trigger_delay_la.setText("N/A")
+            else:
+                # in External Exposure trigger mode
+                self.trigger_delay_la.setText("{:.3f} - {:.3f}".format(delay_min, delay_max))
+
+            if self.parent.config["camera_control"]["trigger_mode"] == "External Exposure":
+                if self.expo_time_dsb.isEnabled():
+                    self.expo_time_dsb.setEnabled(False)
+            else:
+                if not self.expo_time_dsb.isEnabled():
+                    self.expo_time_dsb.setEnabled(True)
 
         if update_frame_readout_time:
+            frame_readout_time = self.camera.read_readout_time("frame")
             self.frame_readout_time_la.setText("{:.3f}".format(frame_readout_time))
 
         if update_row_readout_time:
+            row_readout_time = self.camera.read_readout_time("row")
             self.row_readout_time_la.setText("{:.2f}".format(row_readout_time))
 
         if update_image_size:
@@ -902,8 +906,8 @@ class ControlGUI(Scrollarea):
             self.pixel_readout_rate_cb.setCurrentText(actual_rate)
             self.pixel_readout_rate_cb.blockSignals(False)
 
-        self.update_expo_limit_and_rates(update_expo_time=True, update_frame_readout_time=True, update_row_readout_time=True,
-                                        update_image_size=False, update_interface_rate=False)
+        self.update_expo_limit_and_rates(update_overlap_mode=False, update_expo_time=True, update_frame_readout_time=True, 
+                                         update_row_readout_time=True, update_image_size=False, update_interface_rate=False)
 
     def set_preamp_gain(self, val):
         actual_gain, pixel_encoding, success = self.camera.set_pre_amp_gain(val)
@@ -914,9 +918,7 @@ class ControlGUI(Scrollarea):
             self.preamp_gain_cb.blockSignals(False)
 
         if pixel_encoding != self.parent.config["camera_control"]["pixel_encoding"]:
-            self.pixel_encoding_cb.blockSignals(True)
             self.pixel_encoding_cb.setCurrentText(pixel_encoding) # pre amp gain can change pixel encoding
-            self.pixel_encoding_cb.blockSignals(False)
 
     def set_pixel_encoding(self, val):
         actual_encoding, success = self.camera.set_pixel_encoding(val)
@@ -926,8 +928,8 @@ class ControlGUI(Scrollarea):
             self.pixel_encoding_cb.setCurrentText(actual_encoding)
             self.pixel_encoding_cb.blockSignals(False)
 
-        self.update_expo_limit_and_rates(update_expo_time=False, update_frame_readout_time=False, update_row_readout_time=False,
-                                        update_image_size=True, update_interface_rate=True)
+        self.update_expo_limit_and_rates(update_overlap_mode=False, update_expo_time=False, update_frame_readout_time=False, 
+                                         update_row_readout_time=False, update_image_size=True, update_interface_rate=True)
 
     def set_noise_filter(self, filter_type, val):
         actual_val, success = self.camera.enable_noise_filter(filter_type, val)
@@ -980,10 +982,10 @@ class ControlGUI(Scrollarea):
 
     def tcp_start(self):
         self.tcp_active = True
-        self.tcp_thread = TCPThread(self, host_addr=self.parent.config["tcp_control"]["host_addr"], port=self.parent.config["tcp_control"]["port"])
+        self.tcp_thread = TCPThread(self, host=self.parent.config["tcp_control"]["host_addr"], port=self.parent.config["tcp_control"]["port"])
         self.tcp_thread.update_signal.connect(self.tcp_widgets_update)
-        self.tcp_thread.start_signal.connect(self.start)
-        self.tcp_thread.stop_signal.connect(self.stop)
+        self.tcp_thread.start_signal.connect(self.parent.start)
+        self.tcp_thread.stop_signal.connect(self.parent.stop)
         self.tcp_thread.start()
 
     def tcp_stop(self):
@@ -1007,58 +1009,283 @@ class ControlGUI(Scrollarea):
         if addr:
             self.client_addr_la.setText(dict["client addr"][0]+" ("+str(dict["client addr"][1])+")")
 
-    def load_settings(self, latest=False):
-        pass
+    def load_settings(self):
+        for i in self.meas_rblist:
+            if i.text() == self.parent.config["record_control"]["meas_mode"]:
+                i.setChecked(True)
+                break
+
+        self.num_image_sb.setValue(self.parent.config.getint("image_control", "num_image"))
+        self.run_name_le.setText(self.parent.config["image_control"]["run_name"])
+        self.img_save_chb.setChecked(self.parent.config.getboolean("image_control", "image_auto_save"))
+        self.gaussian_filter_chb.setChecked(self.parent.config.getboolean("image_control", "gaussian_filter"))
+        self.gaussian_filter_sigma_dsb.setValue(self.parent.config.getfloat("image_control", "gaussian_filter_sigma"))
+        self.gaussian_fit_chb.setChecked(self.parent.config.getboolean("image_control", "gaussian_fit"))
+
+        self.server_addr_la.setText(self.parent.config["tcp_control"]["host_addr"]+" ("+self.parent.config["tcp_control"]["port"]+")")
+
+        self.filename_le.setText(self.parent.config["save_load_control"]["filename_to_save"])
+        self.date_time_chb.setChecked(self.parent.config.getboolean("save_load_control", "append_datetime"))
+
+        aoi_binning, aoi_width, aoi_width_min, aoi_width_max, aoi_left, aoi_left_min, aoi_left_max, success = self.camera.set_AOI_binning(direction="horizontal", binning=self.parent.config.getint("camera_control", "hardware_bin_h"), 
+                                                                                                                centered=self.parent.config.getboolean("camera_control", "hardware_roi_h_centered"))
+        if not success:
+            self.parent.config["camera_control"]["hardware_bin_h"] = str(aoi_binning)
+        self.hardware_bin_h_sb.blockSignals(True)
+        self.hardware_bin_h_sb.setValue(aoi_binning)
+        self.hardware_bin_h_sb.blockSignals(False)
+    
+        aoi_width, aoi_width_min, aoi_width_max, aoi_left, aoi_left_min, aoi_left_max, success = self.camera.set_AOI_size(direction="horizontal", size=self.parent.config.getint("camera_control", "hardware_roi_width"), 
+                                                                                                    centered=self.parent.config.getboolean("camera_control", "hardware_roi_h_centered"))
+        if not success:
+            self.parent.config["camera_control"]["hardware_roi_width"] = str(aoi_width)
+        self.hardware_roi_width_sb.blockSignals(True)
+        self.hardware_roi_width_sb.setValue(aoi_width)
+        self.hardware_roi_width_sb.blockSignals(False)
         
-        # read camera 
-        
-        # for i in self.meas_rblist:
-        #     if i.text() == self.parent.config["record_control"]["meas_mode"]:
-        #         i.setChecked(True)
-        #         break
+        self.hardware_roi_width_sb.setMaximum(aoi_width_max)
+        self.hardware_roi_width_sb.setMinimum(aoi_width_min)
+        self.hardware_roi_left_sb.setMaximum(aoi_left_max)
+        self.hardware_roi_left_sb.setMinimum(aoi_left_min)
+        self.hardware_roi_width_unbinned_la.setText(str(self.parent.config.getint("camera_control", "hardware_roi_width") * self.parent.config.getint("camera_control", "hardware_bin_h")))
 
-        # self.num_image_sb.setValue(self.parent.onfig["image_control"].getint("num_image"))
-        # # the spinbox emits 'valueChanged' signal, and its connected function will be called
-        # self.software_roi_xmin_sb.setValue(config["image_control"].getint("xmin"))
-        # self.software_roi_xmax_sb.setValue(config["image_control"].getint("xmax"))
-        # self.software_roi_ymin_sb.setValue(config["image_control"].getint("ymin"))
-        # self.software_roi_ymax_sb.setValue(config["image_control"].getint("ymax"))
-        # # make sure image range is updated BEFORE gaussian_fit_chb
-        # self.gaussian_fit_chb.setChecked(config["image_control"].getboolean("2d_gaussian_fit"))
-        # # the combobox emits 'stateChanged' signal, and its connected function will be called
-        # self.img_save_chb.setChecked(config["image_control"].getboolean("image_auto_save"))
-        # self.run_name_le.setText(config["image_control"].get("run_name"))
+        aoi_left, actual_centered, success = self.camera.set_AOI_centered(direction="horizontal", centered=self.parent.config.getboolean("camera_control", "hardware_roi_h_centered"))
+        if not success:
+            self.parent.config["camera_control"]["hardware_roi_h_centered"] = str(actual_centered)
+        self.hardware_roi_h_centered_chb.blockSignals(True)
+        self.hardware_roi_h_centered_chb.setChecked(actual_centered)
+        self.hardware_roi_h_centered_chb.blockSignals(False)
 
-        # self.gaussian_filter_chb.setChecked(config["image_control"].getboolean("gaussian_filter"))
-        # self.gaussian_filter_sigma_dsb.setValue(config["image_control"].getfloat("gaussian_filter_sigma"))
+        if actual_centered:
+            self.hardware_roi_left_sb.setEnabled(False)
+        else:
+            self.hardware_roi_left_sb.setEnabled(True)
+            aoi_left, success = self.camera.set_AOI_start_index(direction="horizontal", index=self.parent.config.getint("camera_control", "hardware_roi_left"),
+                                                                centered=actual_centered)
+            if not success:
+                self.parent.config["camera_control"]["hardware_roi_left"] = str(aoi_left)
+        self.hardware_roi_left_sb.blockSignals(True)
+        self.hardware_roi_left_sb.setValue(aoi_left)
+        self.hardware_roi_left_sb.blockSignals(False)
 
-        # for name in self.parent.image_win.imgs_name:
-        #     self.parent.image_win.auto_scale_chb_dict[name].setChecked(config["image_control"].getboolean(f"auto_scale_state_{name}"))
-        # self.parent.image_win.ave_img_auto_scale_chb.setChecked(config["image_control"].getboolean("auto_scale_state_Average_image"))
+        aoi_binning, aoi_height, aoi_height_min, aoi_height_max, aoi_top, aoi_top_min, aoi_top_max, success = self.camera.set_AOI_binning(direction="vertical", binning=self.parent.config.getint("camera_control", "hardware_bin_v"), 
+                                                                                                                centered=self.parent.config.getboolean("camera_control", "hardware_roi_v_centered"))
+        if not success:
+            self.parent.config["camera_control"]["hardware_bin_v"] = str(aoi_binning)
+        self.hardware_bin_v_sb.blockSignals(True)
+        self.hardware_bin_v_sb.setValue(aoi_binning)
+        self.hardware_bin_v_sb.blockSignals(False)
 
-        # self.sensor_format_cb.setCurrentText(config["camera_control"]["sensor_format"])
-        # # the combobox emits 'currentTextChanged' signal, and its connected function will be called
+        aoi_height, aoi_height_min, aoi_height_max, aoi_top, aoi_top_min, aoi_top_max, success = self.camera.set_AOI_size(direction="vertical", size=self.parent.config.getint("camera_control", "hardware_roi_height"), 
+                                                                                                    centered=self.parent.config.getboolean("camera_control", "hardware_roi_v_centered"))
+        if not success:
+            self.parent.config["camera_control"]["hardware_roi_height"] = str(aoi_height)
+        self.hardware_roi_height_sb.blockSignals(True)
+        self.hardware_roi_height_sb.setValue(aoi_height)
+        self.hardware_roi_height_sb.blockSignals(False)
 
-        # self.clock_rate_cb.setCurrentText(config["camera_control"]["clock_rate"])
-        # self.conv_factor_cb.setCurrentText(config["camera_control"]["conversion_factor"])
-        # for i in self.trig_mode_rblist:
-        #     if i.text() == config["camera_control"]["trigger_mode"]:
-        #         i.setChecked(True)
-        #         break
+        self.hardware_roi_height_sb.setMaximum(aoi_height_max)
+        self.hardware_roi_height_sb.setMinimum(aoi_height_min)
+        self.hardware_roi_top_sb.setMaximum(aoi_top_max)
+        self.hardware_roi_top_sb.setMinimum(aoi_top_min)
+        self.hardware_roi_height_unbinned_la.setText(str(self.parent.config.getint("camera_control", "hardware_roi_height") * self.parent.config.getint("camera_control", "hardware_bin_v")))
 
-        # # make sure expo_unit_cb changes before time, because it changes expo_dsb range
-        # self.expo_unit_cb.setCurrentText(config["camera_control"]["exposure_unit"])
-        # self.expo_dsb.setValue(config["camera_control"].getfloat("exposure_time"))
+        aoi_top, actual_centered, success = self.camera.set_AOI_centered(direction="vertical", centered=self.parent.config.getboolean("camera_control", "hardware_roi_v_centered"))
+        if not success:
+            self.parent.config["camera_control"]["hardware_roi_v_centered"] = str(actual_centered)
+        self.hardware_roi_v_centered_chb.blockSignals(True)
+        self.hardware_roi_v_centered_chb.setChecked(actual_centered)
+        self.hardware_roi_v_centered_chb.blockSignals(False)
 
-        # self.bin_hori_cb.setCurrentText(config["camera_control"].get("binning_horizontal"))
-        # self.bin_vert_cb.setCurrentText(config["camera_control"].get("binning_vertical"))
+        if actual_centered:
+            self.hardware_roi_top_sb.setEnabled(False)
+        else:
+            self.hardware_roi_top_sb.setEnabled(True)
+            aoi_top, success = self.camera.set_AOI_start_index(direction="vertical", index=self.parent.config.getint("camera_control", "hardware_roi_top"),
+                                                                centered=actual_centered)
+            if not success:
+                self.parent.config["camera_control"]["hardware_roi_top"] = str(aoi_top)
+        self.hardware_roi_top_sb.blockSignals(True)
+        self.hardware_roi_top_sb.setValue(aoi_top)
+        self.hardware_roi_top_sb.blockSignals(False)
 
-        # self.tcp_stop()
-        # self.parent.defaults["tcp_connection"] = config["tcp_control"]
-        # server_host = self.parent.defaults["tcp_connection"]["host_addr"]
-        # server_port = self.parent.defaults["tcp_connection"]["port"]
-        # self.server_addr_la.setText(server_host+" ("+server_port+")")
-        # self.tcp_start()
+        xmin = self.parent.config.getint("image_control", "software_roi_xmin")
+        xmax = self.parent.config.getint("image_control", "software_roi_xmax")
+        ymin = self.parent.config.getint("image_control", "software_roi_ymin")
+        ymax = self.parent.config.getint("image_control", "software_roi_ymax")
+        self.software_roi_xmax_sb.blockSignals(True)
+        self.software_roi_xmin_sb.blockSignals(True)
+        self.software_roi_xmax_sb.setMaximum(aoi_width - 1)
+        self.software_roi_xmax_sb.setMinimum(xmin)
+        self.software_roi_xmax_sb.setValue(xmax)
+        self.software_roi_xmin_sb.setMaximum(xmax)
+        self.software_roi_xmin_sb.setValue(xmin)
+        self.software_roi_xmin_sb.blockSignals(False)
+        self.software_roi_xmax_sb.blockSignals(False)
+
+        self.software_roi_ymax_sb.blockSignals(True)
+        self.software_roi_ymin_sb.blockSignals(True)
+        self.software_roi_ymax_sb.setMaximum(aoi_height - 1)
+        self.software_roi_ymax_sb.setMinimum(ymin)
+        self.software_roi_ymax_sb.setValue(ymax)
+        self.software_roi_ymin_sb.setMaximum(ymax)
+        self.software_roi_ymin_sb.setValue(ymin)
+        self.software_roi_ymin_sb.blockSignals(False)
+        self.software_roi_ymax_sb.blockSignals(False)
+
+        self.parent.update_roi_bound_in_image(bound_type="x", xbound=aoi_width, ybound=aoi_height)
+        self.parent.update_roi_bound_in_image(bound_type="y", xbound=aoi_width, ybound=aoi_height)
+
+        # call this function once, it will update both xmin and xmax
+        self.parent.update_software_roi_in_image("xmin", xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+        # call this function once, it will update both ymin and ymax
+        self.parent.update_software_roi_in_image("ymin", xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+
+        self.check_gaussian_fit_limit()
+        fit_limit = max(self.parent.config.getint("image_control", "gaussian_fit_cpu_limit"), self.parent.config.getint("image_control", "gaussian_fit_gpu_limit"))
+        self.gaussian_fit_chb.setToolTip(f"Can only be enabled when image size less than {fit_limit} pixels.")
+
+        shutter_mode, success = self.camera.set_shutter_mode(self.parent.config["camera_control"]["shutter_mode"])
+        if not success:
+            self.parent.config["camera_control"]["shutter_mode"] = shutter_mode
+        self.shutter_mode_cb.blockSignals(True)
+        self.shutter_mode_cb.setCurrentText(shutter_mode)
+        self.shutter_mode_cb.blockSignals(False)
+
+        trigger_mode, success = self.camera.set_trigger_mode(self.parent.config["camera_control"]["trigger_mode"])
+        if not success:
+            self.parent.config["camera_control"]["trigger_mode"] = trigger_mode
+        self.trigger_mode_cb.blockSignals(True)
+        self.trigger_mode_cb.setCurrentText(trigger_mode)
+        self.trigger_mode_cb.blockSignals(False)
+
+        overlap_exist, overlap_actual, success = self.camera.set_exposure_overlap(self.parent.config.getboolean("camera_control", "exposure_overlap"))
+        if not overlap_exist:
+            self.expo_overlap_chb.setEnabled(False)
+        else:
+            self.expo_overlap_chb.setEnabled(True)
+            if not success:
+                self.parent.config["camera_control"]["exposure_overlap"] = str(overlap_actual)
+        self.expo_overlap_chb.blockSignals(True)
+        self.expo_overlap_chb.setChecked(overlap_actual)
+        self.expo_overlap_chb.blockSignals(False)
+
+        actual_rate, success = self.camera.set_pixel_readout_rate(self.parent.config["camera_control"]["pixel_readout_rate"])
+        if not success:
+            self.parent.config["camera_control"]["pixel_readout_rate"] = actual_rate
+        self.pixel_readout_rate_cb.blockSignals(True)
+        self.pixel_readout_rate_cb.setCurrentText(actual_rate)
+        self.pixel_readout_rate_cb.blockSignals(False)
+
+        min_expo_time, max_expo_time = self.camera.read_exposre_time_range()
+        long_expo_exist, long_expo = self.camera.read_long_exposure_time()
+        self.expo_time_dsb.blockSignals(True)
+        if long_expo_exist:
+            # if short exposure mode exists in the current shutter and trigger mode
+            self.long_exposure_chb.setEnabled(True)
+            self.long_exposure_la.setText("{:.3f}".format(long_expo))
+            if self.parent.config.getboolean("camera_control", "long_exposure"):
+                self.expo_time_dsb.setMinimum(long_expo)
+                self.expo_time_dsb.setMaximum(max_expo_time)
+            else:
+                self.expo_time_dsb.setMinimum(min_expo_time)
+                self.expo_time_dsb.setMaximum(long_expo)
+        else:
+            # if short exposure mode doesn't exist in the current shutter and trigger mode, make it long exposure mode by default
+            self.long_exposure_chb.setEnabled(False)
+            self.long_exposure_la.setText("N/A")
+            self.expo_time_dsb.setMinimum(min_expo_time)
+            self.expo_time_dsb.setMaximum(max_expo_time)
+        self.long_exposure_chb.setChecked(self.parent.config.getboolean("camera_control", "long_exposure"))
+
+        t, success = self.camera.set_exposure_time(self.parent.config.getfloat("camera_control", "exposure_time"))
+        if not success:
+            self.parent.config["camera_control"]["exposure_time"] = str(t)
+        self.expo_time_dsb.setValue(t)
+        self.expo_time_dsb.blockSignals(False)
+
+        delay_min, delay_max = self.camera.read_trigger_delay(self.parent.config.getboolean("camera_control", "long_exposure"))
+        if delay_min == None:
+            # in Internal, Software or External Start trigger mode
+            self.trigger_delay_la.setText("N/A")
+        else:
+            # in External Exposure trigger mode
+            self.trigger_delay_la.setText("{:.3f} - {:.3f}".format(delay_min, delay_max))
+
+        if self.parent.config["camera_control"]["trigger_mode"] == "External Exposure":
+            self.expo_time_dsb.setEnabled(False)
+        else:
+            self.expo_time_dsb.setEnabled(True)
+
+        # make sure to only read out these values after setting pixel readout rate, shutter, trigger, ROI
+        self.frame_readout_time_la.setText("{:.3f}".format(self.camera.read_readout_time("frame")))
+        self.row_readout_time_la.setText("{:.2f}".format(self.camera.read_readout_time("row")))
+
+        actual_gain, pixel_encoding, success = self.camera.set_pre_amp_gain(self.parent.config["camera_control"]["preamp_gain"])
+        if not success:
+            self.parent.config["camera_control"]["preamp_gain"] = actual_gain
+        self.preamp_gain_cb.blockSignals(True)
+        self.preamp_gain_cb.setCurrentText(actual_gain)
+        self.preamp_gain_cb.blockSignals(False)
+
+        actual_encoding, success = self.camera.set_pixel_encoding(self.parent.config["camera_control"]["pixel_encoding"])
+        if not success:
+            self.parent.config["camera_control"]["pixel_encoding"] = actual_encoding
+        self.pixel_encoding_cb.blockSignals(True)
+        self.pixel_encoding_cb.setCurrentText(actual_encoding)
+        self.pixel_encoding_cb.blockSignals(False)
+
+        self.image_size_bytes_la.setText("{:.2f}".format(self.camera.read_image_size()))
+        self.max_interface_rate_la.setText("{:.2f}".format(self.camera.read_interface_transfer_rate()))
+        self.image_baseline_la.setText("{}".format(self.camera.read_image_baseline()))
+
+        actual_val, success = self.camera.enable_noise_filter("spurious", self.parent.config.getboolean("camera_control", "spurious_noise_filter"))
+        if not success:
+            self.parent.config["camera_control"]["spurious_noise_filter"] = str(actual_val)
+        self.spurious_noise_filter_chb.blockSignals(True)
+        self.spurious_noise_filter_chb.setChecked(actual_val)
+        self.spurious_noise_filter_chb.blockSignals(False)
+
+        actual_val, success = self.camera.enable_noise_filter("blemish", self.parent.config.getboolean("camera_control", "blemish_correction"))
+        if not success:
+            self.parent.config["camera_control"]["blemish_correction"] = str(actual_val)
+        self.blemish_correction_chb.blockSignals(True)
+        self.blemish_correction_chb.setChecked(actual_val)
+        self.blemish_correction_chb.blockSignals(False)
+
+        actual_out, success = self.camera.set_auxiliary_output(1, self.parent.config["camera_control"]["auxiliary_output_1"])
+        if not success:
+            self.parent.config["camera_control"]["auxiliary_output_1"] = actual_out
+        self.aux_out_1_cb.blockSignals(True)
+        self.aux_out_1_cb.setCurrentText(actual_out)
+        self.aux_out_1_cb.blockSignals(False)
+
+        actual_out, success = self.camera.set_auxiliary_output(2, self.parent.config["camera_control"]["auxiliary_output_2"])
+        if not success:
+            self.parent.config["camera_control"]["auxiliary_output_2"] = actual_out
+        self.aux_out_2_cb.blockSignals(True)
+        self.aux_out_2_cb.setCurrentText(actual_out)
+        self.aux_out_2_cb.blockSignals(False)
+
+        actual_val, success = self.camera.enable_cooler("fan", self.parent.config.getboolean("camera_control", "fan_cooling"))
+        if not success:
+            self.parent.config["camera_control"]["fan_cooling"] = str(actual_val)
+        self.fan_cooling_chb.blockSignals(True)
+        self.fan_cooling_chb.setChecked(actual_val)
+        self.fan_cooling_chb.blockSignals(False)
+
+        actual_val, success = self.camera.enable_cooler("sensor", self.parent.config.getboolean("camera_control", "sensor_cooling"))
+        if not success:
+            self.parent.config["camera_control"]["sensor_cooling"] = str(actual_val)
+        self.sensor_cooling_chb.blockSignals(True)
+        self.sensor_cooling_chb.setChecked(actual_val)
+        self.sensor_cooling_chb.blockSignals(False)
+
+        fan_status, sensor_cooler_status, sensor_cooling_status, sensor_temp = self.camera.read_cooling_status()
+        self.cooling_status_la.setText(sensor_cooling_status)
+        self.sensor_temp_la.setText("{:.2f}".format(sensor_temp))
+
+        self.restart_tcp()
 
     def program_close(self):
         self.tcp_stop()

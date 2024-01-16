@@ -36,25 +36,17 @@ class ImageGUI(Scrollarea):
         self.frame.addWidget(self.image_tab, 0, 0, 2, 1)
         for i, name in enumerate(self.signal_image_name_list):
             image_widget = imageWidget(parent=self, name=name, include_ROI=True, colorname="viridis", 
-                                    dummy_data_xmax=self.parent.config.getint("camera_control", "hardware_roi_width"),
-                                    dummy_data_ymax=self.parent.config.getint("camera_control", "hardware_roi_height"),
-                                    )
+                                    dummy_data_xmax=2560, dummy_data_ymax=2160)
 
             # add the widget to the front panel
             self.image_tab.addTab(image_widget.graphlayout, " " + name + " ")
 
             # config ROI
-            image_widget.image_roi.setPos(pos=(self.parent.config.getint("image_control" ,"software_roi_xmin"), 
-                                          self.parent.config.getint("image_control" ,"software_roi_ymin")))
-            image_widget.image_roi.setSize(size=(self.parent.config.getint("image_control", "software_roi_xmax") - \
-                                            self.parent.config.getint("image_control", "software_roi_xmin"),
-                                            self.parent.config.getint("image_control", "software_roi_ymax") - \
-                                            self.parent.config.getint("image_control", "software_roi_ymin")))
+            image_widget.image_roi.setPos(pos=(0, 0))
+            image_widget.image_roi.setSize(size=(2560, 2160))
             image_widget.image_roi.sigRegionChanged.connect(lambda roi, name=name: self.update_image_roi(source_image_name=name))
-            image_widget.image_roi.setBounds(pos=[0,0], size=[self.parent.config.getint("camera_control", "hardware_roi_width"), 
-                                                              self.parent.config.getint("camera_control", "hardware_roi_height")])
+            image_widget.image_roi.setBounds(pos=[0,0], size=[2560, 2160])
 
-            image_widget.auto_scale_chb.setChecked(self.parent.config.getboolean("image_auto_scale_control", name))
             image_widget.auto_scale_chb.clicked[bool].connect(lambda val, param=name: self.update_auto_scale(val, param))
 
             self.signal_image_widget_list[name] = image_widget
@@ -85,11 +77,9 @@ class ImageGUI(Scrollarea):
         self.x_plot_curve = x_plot.plot(x_data)
 
         # add ROI selection
-        self.x_plot_lr = pg.LinearRegionItem([self.parent.config.getint("image_control", "software_roi_xmin"),
-                                              self.parent.config.getint("image_control", "software_roi_xmax")], 
-                                             swapMode="block")
+        self.x_plot_lr = pg.LinearRegionItem([0, 2560], swapMode="block")
         # no "snap" option for LinearRegion item?
-        self.x_plot_lr.setBounds([0, self.parent.config.getint("camera_control", "hardware_roi_width")])
+        self.x_plot_lr.setBounds([0, 2560])
         x_plot.addItem(self.x_plot_lr)
         self.x_plot_lr.sigRegionChanged.connect(lambda roi, name="x_plot": self.update_image_roi(source_image_name=name))
 
@@ -106,10 +96,8 @@ class ImageGUI(Scrollarea):
         self.y_plot_curve = y_plot.plot(y_data)
 
         # add ROI selection
-        self.y_plot_lr = pg.LinearRegionItem([self.parent.config.getint("image_control", "software_roi_ymin"),
-                                              self.parent.config.getint("image_control", "software_roi_ymax")], 
-                                             swapMode="block")
-        self.y_plot_lr.setBounds([0, self.parent.config.getint("camera_control", "hardware_roi_height")])
+        self.y_plot_lr = pg.LinearRegionItem([0, 2160], swapMode="block")
+        self.y_plot_lr.setBounds([0, 2160])
         y_plot.addItem(self.y_plot_lr)
         self.y_plot_lr.sigRegionChanged.connect(lambda roi, name="y_plot": self.update_image_roi(source_image_name=name))
 
@@ -124,8 +112,7 @@ class ImageGUI(Scrollarea):
         x_plot.setLabel("right")
         # x_plot.getAxis("right").setTicks([])
         x_plot.getAxis("right").setStyle(**tickstyle)
-        data_roi = self.starting_data[self.parent.config.getint("image_control", "software_roi_xmin") : self.parent.config.getint("image_control", "software_roi_xmax"),
-                                      self.parent.config.getint("image_control", "software_roi_ymin") : self.parent.config.getint("image_control", "software_roi_ymax")]
+        data_roi = self.starting_data[0:2560, 0:2160]
         x_data = np.sum(data_roi, axis=1)
         self.x_plot_roi_curve = x_plot.plot(x_data)
         self.x_plot_roi_fit_curve = x_plot.plot(np.array([]))
@@ -147,12 +134,10 @@ class ImageGUI(Scrollarea):
     def place_ave_image(self):
         name = "Average image"
         self.ave_image_widget = imageWidget(parent=self, name=name, include_ROI=False, colorname="viridis", 
-                                dummy_data_xmax=self.parent.config.getint("image_control", "software_roi_xmax"),
-                                dummy_data_ymax=self.parent.config.getint("image_control", "software_roi_ymax"),
-                                )
+                                dummy_data_xmax=2560, dummy_data_ymax=2160)
 
         self.ave_scan_tab.addTab(self.ave_image_widget.graphlayout, " " + name + " ")
-        self.ave_image_widget.auto_scale_chb.setChecked(self.parent.config.getboolean("image_auto_scale_control", "Average image"))
+        
         self.ave_image_widget.auto_scale_chb.clicked[bool].connect(lambda val, param="Average image": self.update_auto_scale(val, param))
 
     # place scan plots
@@ -264,4 +249,11 @@ class ImageGUI(Scrollarea):
             logging.error(f"(ImageGUI.update_auto_scale): Unsupported auto scale param {param}.")
 
     def load_settings(self):
-        pass
+        for name, image_widget in self.signal_image_widget_list.items():
+            image_widget.auto_scale_chb.setEnabled(False)
+            image_widget.auto_scale_chb.setChecked(self.parent.config.getboolean("image_auto_scale_control", name))
+            image_widget.auto_scale_chb.setEnabled(True)
+
+        self.ave_image_widget.auto_scale_chb.setEnabled(False)
+        self.ave_image_widget.auto_scale_chb.setChecked(self.parent.config.getboolean("image_auto_scale_control", "Average image"))
+        self.ave_image_widget.auto_scale_chb.setEnabled(True)

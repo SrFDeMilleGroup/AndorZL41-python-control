@@ -61,11 +61,11 @@ Other softwares
 - https://andor.oxinst.com/tools/third-party-software-matrix
 
 ## To-do
-- start and close functions
-- dummy camera: exposure time in different shutter and trigger mode. overlap in different shutter and exposure mode.
+- start and close functions: acuisition thread
+- dummy camera: acquire
 - reconnect camera
-- save/load program settings
 - acquisition thread
 - camera take multiple images and only readout at the end of the cycle
 - apply to Apogee camera (need to switch to Andor sdk2)
 - better readme.md file
+- Camera external trigger delay (AndorZL41Wave.read_trigger_delay), LongExposureTransition (AndorZL41wave.read_long_exposure_time) and ControlGUI.update_expo_limit_and_rates() needs to be tested on an actual camera.

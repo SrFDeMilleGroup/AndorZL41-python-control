@@ -92,7 +92,7 @@ class AndorZL41Wave:
             aoi_left_max = self.camera.max_AOILeft - 1
             if centered:
                 AOI_start = int((self.cam_sensor_size_horizontal - aoi_width * aoi_binning) / 2)
-                AOI_start = np.clip(AOI_start, aoi_width_min, aoi_width_max)
+                AOI_start = np.clip(AOI_start, aoi_left_min, aoi_left_max)
                 self.camera.AOILeft = AOI_start + 1
                 aoi_left = self.camera.AOILeft - 1
                 if AOI_start != aoi_left:
@@ -289,15 +289,32 @@ class AndorZL41Wave:
         """
 
         assert type(overlap) == bool
-        
-        self.camera.Overlap = overlap
-        overlap_actual = bool(self.camera.Overlap)
+
+        exist = self.read_overlap_writable()
+        if not exist:
+            # in this case, overlap is fixed to be false
+            overlap_actual = False
+        else:
+            self.camera.Overlap = overlap
+            overlap_actual = bool(self.camera.Overlap)
 
         if overlap_actual != overlap:
             logging.error(f"Failed to set exposure overlap to {overlap}. Current value is {overlap_actual}.")
-            return (overlap_actual, False)
+            return (exist, overlap_actual, False)
         else:
-            return (overlap_actual, True)
+            return (exist, overlap_actual, True)
+        
+    def read_overlap_writable(self) -> bool:
+        """
+        Read if exposure overlap is writable.
+        """
+
+        if self.camera.ElectronicShutteringMode == "Rolling" and \
+            self.camera.TriggerMode in ["Internal", "Software", "External Exposure"]:
+            # in this case, overlap is fixed to be false
+            return False
+        else:
+            return True
         
     def set_exposure_time(self, time: float) -> float:
         """
@@ -341,8 +358,67 @@ class AndorZL41Wave:
         Read out minimum exposure time in unit of ms.
         """
 
-
         return (self.camera.min_ExposureTime * 1e3, self.camera.max_ExposureTime * 1e3)
+    
+    def read_long_exposure_time(self) -> tuple:
+        """
+        Read out long exposure time in unit of ms.
+        """
+
+        shutter_mode = self.camera.ElectronicShutteringMode
+        trigger_mode = self.camera.TriggerMode
+
+        if shutter_mode == "Rolling":
+            if trigger_mode == ["Internal", "External Start"]:
+                # "exist" indicates if under the current shutter and trigger mode, the camera distinguishes between short and long exposure.
+                exist = True if self.camera.Overlap else False
+            else:
+            # trigger_mode in ["External", "Software", "External Exposure"]
+                exist = False
+        else:
+            # Global Shutter mode
+            if trigger_mode in ["Internal", "External", "Software", "External Start"]:
+                exist = True if not self.camera.Overlap else False
+            else:
+                # trigger_mode == "External Exposure"
+                exist = False
+
+        l = self.camera.LongExposureTransition * 1e3
+        # if shutter_mode == "Global":
+        #     if trigger_mode == "External":
+        #         if not self.camera.Overlap:
+        #             # in this mode, the camera may not return the expected long exposure time.
+        #             # in this case, we set the long exposure time to be frame readout time.
+        #             # this part needs to be tested on the actual camera.
+        #             l = self.read_readout_time('frame')
+
+        return exist, l
+    
+    def read_trigger_delay(self, long_expo) -> tuple:
+        """
+        Read out external trigger delay in unit of ms.
+        """
+
+        trigger_mode = self.camera.TriggerMode
+        if trigger_mode not in ["External", "External Exposure"]:
+            return None, None
+        
+        shutter_mode = self.camera.ElectronicShutteringMode
+        t = self.read_readout_time('row') / 1e3 # convert from us to ms
+        if shutter_mode == "Rolling":
+            # for both External and External Exposure trigger mode
+            # return delay_min, delay_max
+            return 0, t
+        else:
+            # Global Shutter mode
+            if (not long_expo) and trigger_mode == "External" and (not self.camera.Overlap):
+                # The only thing we need to handle differently if External trigger mode non-overlap mode.
+                # Because in this mode, expsure time can be shorter than frame reaout time.
+                # In this case, the trigger delay should be set to frame reaout time.
+                f = self.read_readout_time('frame')
+                return f + t, f + t * 2                
+            else:
+                return t, 2 * t
 
     def read_readout_time(self, type: str) -> float:
         """
@@ -397,7 +473,7 @@ class AndorZL41Wave:
     def read_interface_transfer_rate(self) -> float:
         """Read out interface (Camera link or USB) transfer rate in unit of frames per second."""
  
-        return self.camera.InterfaceTransferRate
+        return self.camera.MaxInterfaceTransferRate
     
     def read_image_baseline(self) -> int:
         """Read out the baseline of each pixel reading."""

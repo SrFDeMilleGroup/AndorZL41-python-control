@@ -28,8 +28,8 @@ class AndorGUI(qt.QMainWindow):
         self.control_gui = ControlGUI(self)
         self.image_gui = ImageGUI(self)
 
-        # # load latest settings
-        # # self.load_settings(latest=True)
+        # load latest settings
+        self.load_settings(latest=True)
 
         self.splitter = qt.QSplitter()
         self.splitter.setOrientation(PyQt5.QtCore.Qt.Horizontal)
@@ -335,13 +335,13 @@ class AndorGUI(qt.QMainWindow):
         else:
         # compile file name
             filename = self.config["save_load_control"]["filename_to_save"]
-            if self.date_time_chb.isChecked():
+            if self.control_gui.date_time_chb.isChecked():
                 filename += "_"
                 filename += time.strftime("%Y%m%d_%H%M%S")
             filename += ".ini"
 
             # open a file dialog to choose a file name to save
-            filename, _ = qt.QFileDialog.getSaveFileName(self, "Save settings", "saved_settingss/"+filename, "INI File (*.ini);;All Files (*)")
+            filename, _ = qt.QFileDialog.getSaveFileName(self, "Save settings", "saved_settings/"+filename, "INI File (*.ini);;All Files (*)")
             if not filename:
                 return
 
@@ -368,6 +368,7 @@ class AndorGUI(qt.QMainWindow):
     def closeEvent(self, event):
         if not self.control_gui.active:
             self.save_settings(latest=True)
+            self.control_gui.program_close()
             super().closeEvent(event)
 
         else:
@@ -378,6 +379,7 @@ class AndorGUI(qt.QMainWindow):
                                 qt.QMessageBox.No)
             if ans == qt.QMessageBox.Yes:
                 self.save_settings(latest=True)
+                self.control_gui.program_close()
                 super().closeEvent(event)
             else:
                 event.ignore()

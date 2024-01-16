@@ -1,4 +1,7 @@
 from PyQt5.QtCore import QTimer
+import logging, math
+
+# This class defines a dummy camera, which mimics the bahaviour of Andor Zyla 5.5 sCMOS camera.
 
 # To make programming easier,
 # the values of class data attributes are only changed when they are read out,
@@ -11,7 +14,9 @@ from PyQt5.QtCore import QTimer
 # But when writing a getter function, if the value of this attribute can be changed by other attributes,
 # then the value of this attribute needs to be re-calculated.
 class DummyCamera:
+    __isfrozen = False
     def __init__(self):
+
         self.AOILayout = 'Image' # default setting is also image, this step can be skipped
         self.ShutterMode = 'Closed' # shutter closed until exposure is triggered
 
@@ -20,15 +25,27 @@ class DummyCamera:
         self._AOIWidth_unbinned = 2560 # AOI in unbinned pixels
         self._AOIHeight_unbinned = 2160 # AOI in unbinned pixels
         self._AOIHBin = 1
+        self._min_AOIHBin = 1
+        self._max_AOIHBin = 640
         self._AOIVBin = 1
+        self._min_AOIVBin = 1
+        self._max_AOIVBin = 2160
         self._AOIWidth = 2560
+        self._min_AOIWidth = 4 # in 4 binned pixels, independent of AOIHBin
+        self._max_AOIWidth = 2560
         self._AOIHeight = 2160
+        self._min_AOIHeight = 8
+        self._max_AOIHeight = 2160
         self._AOILeft = 1
+        self._min_AOILeft = 1
+        self._max_AOILeft = 1
         self._AOITop = 1
+        self._min_AOITop = 1
+        self._max_AOITop = 1
 
         self.VerticallyCenterAOI = False
 
-        self.ElectronicShutterMode = 'Rolling' # Rolling or Global
+        self.ElectronicShutteringMode = 'Rolling' # Rolling or Global
         self.TriggerMode = 'Internal' # Internal, External, External Start, External Exposure, Software
         self.Overlap = False
         self.PixelReadoutRate = '280 MHz' # 280 MHz or 100 MHz
@@ -50,13 +67,30 @@ class DummyCamera:
 
         self.temp_timer = QTimer()
         self.temp_timer.timeout.connect(self.update_temperature)
-        self.temp_timer.start(1000) # in ms, time interval
+        self.temp_timer.start(5000) # in ms, time interval
+                
+        # call the following functions just to have all attributes created before __isfrozen set to True        
+        self.ReadoutTime
+        self.RowReadTime
+        self.LongExposureTransition
+        self.min_ExposureTime
+        self.max_ExposureTime
+        self.ImageSizeBytes
+        self.MaxInterfaceTransferRate
+        self.Baseline
+
+        self.__isfrozen = True
 
     def __enter__(self):
         return self
     
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
+
+    def __setattr__(self, key, value):
+        if self.__isfrozen and not hasattr(self, key):
+            raise TypeError(f"{self} doesn't have attribute {key}.")
+        super().__setattr__(key, value)
 
     def close(self):
         self.temp_timer.stop()
@@ -96,12 +130,10 @@ class DummyCamera:
 
     @property
     def min_AOIHBin(self):
-        self._min_AOIHBin = 1
         return self._min_AOIHBin
     
     @property
     def max_AOIHBin(self):
-        self._max_AOIHBin = 640
         return self._max_AOIHBin
 
     @property
@@ -121,12 +153,10 @@ class DummyCamera:
     
     @property
     def min_AOIVBin(self):
-        self._min_AOIVBin = 1
         return self._min_AOIVBin
     
     @property
     def max_AOIVBin(self):
-        self._max_AOIVBin = self._sensor_height
         return self._max_AOIVBin
     
     @property
@@ -147,7 +177,6 @@ class DummyCamera:
 
     @property
     def min_AOIWidth(self):
-        self._min_AOIWidth = 4 # in 4 binned pixels, independent of AOIHBin
         return self._min_AOIWidth
     
     @property
@@ -174,7 +203,7 @@ class DummyCamera:
     @property
     def min_AOIHeight(self):
         # min height is 8 unbinned pixels
-        self._min_AOIHeight = int(8 / self.AOIVBin) + 1 # int() rounds down
+        self._min_AOIHeight = math.ceil(8 / self.AOIVBin)
         return self._min_AOIHeight
     
     @property
@@ -197,7 +226,6 @@ class DummyCamera:
 
     @property
     def min_AOILeft(self):
-        self._min_AOILeft = 1
         return self._min_AOILeft
     
     @property
@@ -208,7 +236,7 @@ class DummyCamera:
     @property
     def AOITop(self):
         if self.VerticallyCenterAOI:
-            self._AOITop = int((self._sensor_height - self.AOIHeight * self.AOIVBin) / 2) + 1
+            self._AOITop = math.ceil((self._sensor_height - self.AOIHeight * self.AOIVBin) / 2)
         else:
             # AOITop can be changed by AOIHeight, AOIVBin, or AOITop setter method
             self._AOITop = min(self._AOITop, self._sensor_height - self.AOIHeight * self.AOIVBin + 1)
@@ -227,7 +255,6 @@ class DummyCamera:
 
     @property
     def min_AOITop(self):
-        self._min_AOITop = 1
         return self._min_AOITop
     
     @property
@@ -245,13 +272,13 @@ class DummyCamera:
         self._VerticallyCenterAOI = center
 
     @property
-    def ElectronicShutterMode(self):
-        return self._ElectronicShutterMode
+    def ElectronicShutteringMode(self):
+        return self._ElectronicShutteringMode
     
-    @ElectronicShutterMode.setter
-    def ElectronicShutterMode(self, mode):
+    @ElectronicShutteringMode.setter
+    def ElectronicShutteringMode(self, mode):
         assert mode in ["Rolling", "Global"]
-        self._ElectronicShutterMode = mode
+        self._ElectronicShutteringMode = mode
 
     @property
     def TriggerMode(self):
@@ -264,21 +291,33 @@ class DummyCamera:
 
     @property
     def Overlap(self):
-        return self._Overlap
+        shutter = self.ElectronicShutteringMode
+        trigger = self.TriggerMode
+        if shutter == "Rolling" and trigger in ["External", "Software", "External Exposure"]:
+            # overlap is fixed to False in these modes.
+            return False
+        else:
+            return self._Overlap
     
     @Overlap.setter
     def Overlap(self, overlap):
         assert overlap in [True, False]
-        self._Overlap = overlap
+        shutter = self.ElectronicShutteringMode
+        trigger = self.TriggerMode
+        if shutter == "Rolling" and trigger in ["External", "Software", "External Exposure"]:
+            logging.error("Overlap is not writable for rolling shutter and External/Software/External Exposure trigger mode. Overlap is set to False.")
+        else:
+            self._Overlap = overlap
 
-    @property
-    def PixelReadoutRate(self):
-        return self._PixelReadoutRate
+    # Global Clear is only available for Andor ZL41 Wave 4.2, not 5.5 version
+    # @property
+    # def RollingShutterGlobalClear(self):
+    #     return self._RollingShutterGlobalClear
     
-    @PixelReadoutRate.setter
-    def PixelReadoutRate(self, rate):
-        assert rate in ["280 MHz", "100 MHz"]
-        self._PixelReadoutRate = rate
+    # @RollingShutterGlobalClear.setter
+    # def RollingShutterGlobalClear(self, clear):
+    #     assert clear in [True, False]
+    #     self._RollingShutterGlobalClear = clear
 
     @property
     def ExposureTime(self):
@@ -296,23 +335,80 @@ class DummyCamera:
 
     @property
     def min_ExposureTime(self):
-        shutter = self.ElectronicShutterMode
+        shutter = self.ElectronicShutteringMode
         trigger = self.TriggerMode
-        if shutter == "Global" and trigger == "External":
-            self._min_ExposureTime = self.RowReadTime
+        if shutter == "Rolling":
+            if trigger in ["Internal", "External Start"]:
+                self._min_ExposureTime = self.RowReadTime
+            elif trigger in ["External", "Software"]:
+                self._min_ExposureTime = self.RowReadTime * 3
+            elif trigger == "External Exposure":
+                if self.Overlap:
+                    self._min_ExposureTime = self.ReadoutTime + self.RowReadTime
+                else:
+                    self._min_ExposureTime = self.RowReadTime * 3
         else:
-            self._min_ExposureTime = self.ReadoutTime
+            # shutter == "Global"
+            if trigger == ["Internal", "External Start"]:
+                if self.Overlap:
+                    self._min_ExposureTime = self.ReadoutTime + self.RowReadTime * (1 + 9) # 1 interframe readout time is 9 rows
+                else:
+                    self._min_ExposureTime = self.RowReadTime
+            elif trigger in ["External", "Software"]:
+                if self.Overlap:
+                    self._min_ExposureTime = self.ReadoutTime + self.RowReadTime * (1 + 9)
+                else:
+                    self._min_ExposureTime = self.ReadoutTime + self.RowReadTime * 3
+            elif trigger == "External Exposure":
+                if self.Overlap:
+                    self._min_ExposureTime = self.ReadoutTime * 2 + self.RowReadTime * 9 * 2
+                else:
+                    self._min_ExposureTime = self.ReadoutTime + self.RowReadTime * 3
 
         return self._min_ExposureTime
+    
+    @property
+    def max_ExposureTime(self):
+        self._max_ExposureTime = 30 # in seconds
+        return self._max_ExposureTime
+    
+    @property
+    def LongExposureTransition(self):
+        shutter = self.ElectronicShutteringMode
+        trigger = self.TriggerMode
+
+        if shutter == "Rolling":
+            if trigger in ["Internal", "External Start"] and self.Overlap:
+                self._LongExposureTransition = self.ReadoutTime
+            else:
+                # in these modes, the camera doesn't distinguish between short and long exposure
+                self._LongExposureTransition = self.min_ExposureTime
+        else:
+            # shutter == "Global"
+            if trigger in ["Internal", "External", "Software", "External Start"] and (not self.Overlap):
+                self._LongExposureTransition = self.ReadoutTime + self.RowReadTime * 4
+            else:
+                self._LongExposureTransition = self.min_ExposureTime
+
+        return self._LongExposureTransition
+    
+    @property
+    def PixelReadoutRate(self):
+        return self._PixelReadoutRate
+    
+    @PixelReadoutRate.setter
+    def PixelReadoutRate(self, rate):
+        assert rate in ["280 MHz", "100 MHz"]
+        self._PixelReadoutRate = rate
 
     @property
     def RowReadTime(self):
-        sensor_width = self._sensor_width
+        width_to_read = 2624 # takes 2624 clock cycles to read out a row
         if self.PixelReadoutRate == "280 MHz":
-            self._RowReadTime = sensor_width / 280e6 # in seconds
+            self._RowReadTime = width_to_read / 280e6 # in seconds
         else:
             # self.PixelReadoutRate == "100 MHz"
-            self._RowReadTime = sensor_width / 100e6
+            self._RowReadTime = width_to_read / 100e6
 
         return self._RowReadTime
     
@@ -335,11 +431,6 @@ class DummyCamera:
             self._ReadoutTime = self.RowReadTime * rows
 
         return self._ReadoutTime
-
-    @property
-    def max_ExposureTime(self):
-        self._max_ExposureTime = 30 # in seconds
-        return self._max_ExposureTime
 
     @property
     def SimplePreAmpGainControl(self):
@@ -369,14 +460,13 @@ class DummyCamera:
     @property
     def ImageSizeBytes(self):
         encoding = self.PixelEncoding
-        if encoding == "Mono12" or "Mono16":
+        if encoding in ["Mono12", "Mono16"]:
             b = 2
         elif encoding == "Mono12Packed":
             b = 1.5
         else:
             # encoding == "Mono32"
             b = 4
-
         self._ImageSizeBytes = round(self.AOIWidth * self.AOIHeight * b) # in bytes
         return self._ImageSizeBytes
     
@@ -384,7 +474,7 @@ class DummyCamera:
     def MaxInterfaceTransferRate(self):
         speed = 0.82944e9 # in bytes per second
         self._MaxInterfaceTransferRate = speed / self.ImageSizeBytes
-        return self._InterfaceTransferRate
+        return self._MaxInterfaceTransferRate
 
     @property
     def Baseline(self):
