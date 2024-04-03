@@ -5,10 +5,10 @@ import logging, multiprocessing
 from .dummy_camera import DummyCamera
 
 
-def worker(return_dict):
-    # in the case where the camera PCIe card is not installed, the program will stuck here.
+def worker():
+    # try open sdk3 once
+    # in the case where the camera PCIe card is not installed, the program will be stuck here.
     sdk3 = AndorSDK3()
-    return_dict['sdk3'] = sdk3
 
 class AndorZL41Wave:
     def __init__(self, parent):
@@ -16,16 +16,14 @@ class AndorZL41Wave:
 
         try:
             cam_index = 0
-            timeout = 1 # in seconds
+            timeout = 30 # in seconds
             
             # follow https://stackoverflow.com/a/14924210
             # and https://stackoverflow.com/a/37736655
             # to set a timeout for opening Andor SDK3.
-            # If the camera PCIe card is not installed, the opening Andor SDK3 will take forever.
-            d = {}
-            queue = multiprocessing.Queue()
-            queue.put(d)
-            p = multiprocessing.Process(target=worker, args=(queue,))
+            # But for some readon we can't just use the sdk3 object opened in the worker process, but have to create a new one later.
+            # If the camera PCIe card is not installed, then opening Andor SDK3 will take forever.
+            p = multiprocessing.Process(target=worker, args=())
             p.start()
             p.join(timeout)
             if p.is_alive():
@@ -33,7 +31,7 @@ class AndorZL41Wave:
                 p.join()
                 raise Exception(f"Timeout for opening ANdor SDK3 (timeout = {timeout} seconds). Please check if the camera or the PCIe Camera Link card are installed.")
                         
-            self.sdk3 = queue.get()['sdk3']
+            self.sdk3 = AndorSDK3() # If the above exception doesn't raise, it means the SDK3 can be successfully opened.
             logging.info(f"Using SDK version {self.sdk3.SoftwareVersion}.")
             logging.info("Found {:d} camera(s) in the system.".format(self.sdk3.DeviceCount))
 
@@ -73,9 +71,9 @@ class AndorZL41Wave:
         Set binning in AOI.
         """
 
-        assert direction in ['horizontal', 'vertical']
-        assert type(binning) == int
-        assert type(centered) == bool
+        assert direction in ['horizontal', 'vertical'], f"Invalid AOI binning direction {direction}. Direction can only be horizontal or vertical."
+        assert type(binning) == int, f"Invalid AOI binning value type {type(binning)}. Binning should be an integer."
+        assert type(centered) == bool, f"Invalid AOI binning centered value type {type(centered)}. Centered should be a boolean."
 
         if direction == 'horizontal':
             new_binning = np.clip(binning, self.cam_binning_horizontal_min, self.cam_binning_horizontal_max)
@@ -128,9 +126,9 @@ class AndorZL41Wave:
         Set AOI size in unit of binned pixels.
         """
 
-        assert direction in ['horizontal', 'vertical']
-        assert type(size) == int
-        assert type(centered) == bool
+        assert direction in ['horizontal', 'vertical'], f"Invalid AOI size direction {direction}. Direction can only be horizontal or vertical."
+        assert type(size) == int, f"Invalid AOI size value type {type(size)}. Size should be an integer."
+        assert type(centered) == bool, f"Invalid AOI size centered value type {type(centered)}. Centered should be a boolean."
 
         if direction == 'horizontal':
             new_size = np.clip(size, self.camera.min_AOIWidth, self.camera.max_AOIWidth)
@@ -185,8 +183,8 @@ class AndorZL41Wave:
         Andor cameras count pixels from 1, so the input index should be 1 less than the actual index. This is compensated below.
         """
 
-        assert direction in ['horizontal', 'vertical']
-        assert type(index) == int
+        assert direction in ['horizontal', 'vertical'], f"Invalid AOI start index direction {direction}. Direction can only be horizontal or vertical."
+        assert type(index) == int, f"Invalid AOI start index value type {type(index)}. Index should be an integer."
         assert centered == False # cannot set AOI start index when AOI is centered
 
         if direction == 'horizontal':
@@ -220,14 +218,14 @@ class AndorZL41Wave:
         Set AOI to be centered in the sensor or not.      
         """
 
-        assert direction in ['horizontal', 'vertical']
-        assert type(centered) == bool
+        assert direction in ['horizontal', 'vertical'], f"Invalid AOI centered direction {direction}. Direction can only be horizontal or vertical."
+        assert type(centered) == bool, f"Invalid AOI centered value type {type(centered)}. Centered should be a boolean."
         
         if direction == 'horizontal':
             if centered:
                 AOI_start = int((self.cam_sensor_size_horizontal - self.camera.AOIWidth * self.camera.AOIHBin) / 2)
                 aoi_left, success = self.set_AOI_start_index('horizontal', AOI_start, centered=False)
-                actual_centered = True if success else False
+                actual_centered = success
             else:
                 aoi_left = self.camera.AOILeft - 1
                 success = True
@@ -256,7 +254,7 @@ class AndorZL41Wave:
         Set shutter mode.
         """
 
-        assert mode in ['Rolling', 'Global']
+        assert mode in ['Rolling', 'Global'], f"Invalid shutter mode {mode}. Mode can only be Rolling or Global."
         
         self.camera.ElectronicShutteringMode = mode
         mode_actual = self.camera.ElectronicShutteringMode
@@ -272,7 +270,7 @@ class AndorZL41Wave:
         Set trigger mode.
         """
 
-        assert mode in ['Internal', 'Software', 'External', 'External Start', 'External Exposure']
+        assert mode in ['Internal', 'Software', 'External', 'External Start', 'External Exposure'], f"Invalid trigger mode {mode}. Mode can only be Internal, Software, External, External Start, or External Exposure."
         
         self.camera.TriggerMode = mode
         mode_actual = self.camera.TriggerMode
@@ -288,7 +286,7 @@ class AndorZL41Wave:
         Set exposure overlap.
         """
 
-        assert type(overlap) == bool
+        assert type(overlap) == bool, f"Invalid exposure overlap value type {type(overlap)}. Overlap should be a boolean."
 
         exist = self.read_overlap_writable()
         if not exist:
@@ -309,8 +307,13 @@ class AndorZL41Wave:
         Read if exposure overlap is writable.
         """
 
-        if self.camera.ElectronicShutteringMode == "Rolling" and \
-            self.camera.TriggerMode in ["Internal", "Software", "External Exposure"]:
+        shutter_mode = self.camera.ElectronicShutteringMode
+        assert shutter_mode in ["Rolling", "Global"], f"Invalid shutter mode {shutter_mode}. Mode can only be Rolling or Global."
+
+        trigger_mode = self.camera.TriggerMode
+        assert trigger_mode in ['Internal', 'Software', 'External', 'External Start', 'External Exposure'], f"Invalid trigger mode {trigger_mode}. Mode can only be Internal, Software, External, External Start, or External Exposure."
+
+        if shutter_mode == "Rolling" and trigger_mode in ["External", "Software"]:
             # in this case, overlap is fixed to be false
             return False
         else:
@@ -321,7 +324,7 @@ class AndorZL41Wave:
         Set exposure time in unit of ms.
         """
 
-        assert type(time) == float
+        assert type(time) == float, f"Invalid exposure time value type {type(time)}. Time should be a float."
         
         new_time = np.clip(time, self.camera.min_ExposureTime * 1e3, self.camera.max_ExposureTime * 1e3) # convert from s to ms
         if new_time != time:
@@ -331,8 +334,10 @@ class AndorZL41Wave:
         self.camera.ExposureTime = time / 1e3 # convert from ms to s
         time_actual = self.camera.ExposureTime * 1e3 # convert from s to ms
 
-        if abs(time_actual - time) > 5e-6:
-            logging.error(f"Failed to set exposure time to {time}. Current value is {time_actual}.")
+        if abs(time_actual - time) > self.read_readout_time('row'): # in ms
+            logging.error(f"Failed to set exposure time to {time} ms. Current value is {time_actual} ms.")
+            return time_actual, False
+        elif abs(time_actual - time) > 1e-3: # in ms
             return time_actual, False
         else:
             return time_actual, True
@@ -342,7 +347,7 @@ class AndorZL41Wave:
         Set pixel readout rate.
         """
 
-        assert rate in ['100 MHz', '280 MHz']
+        assert rate in ['100 MHz', '280 MHz'], f"Invalid pixel readout rate {rate}. Rate can only be 100 MHz or 280 MHz."
         
         self.camera.PixelReadoutRate = rate
         rate_actual = self.camera.PixelReadoutRate
@@ -366,31 +371,28 @@ class AndorZL41Wave:
         """
 
         shutter_mode = self.camera.ElectronicShutteringMode
+        assert shutter_mode in ["Rolling", "Global"], f"Invalid shutter mode {shutter_mode}. Mode can only be Rolling or Global."
+
         trigger_mode = self.camera.TriggerMode
+        assert trigger_mode in ['Internal', 'Software', 'External', 'External Start', 'External Exposure'], f"Invalid trigger mode {trigger_mode}. Mode can only be Internal, Software, External, External Start, or External Exposure."
 
         if shutter_mode == "Rolling":
-            if trigger_mode == ["Internal", "External Start"]:
-                # "exist" indicates if under the current shutter and trigger mode, the camera distinguishes between short and long exposure.
-                exist = True if self.camera.Overlap else False
-            else:
-            # trigger_mode in ["External", "Software", "External Exposure"]
-                exist = False
+            # trigger_mode in ["Internal", "External", "Software", "External Exposure", "Exposure Start"]
+            # In Internal or External Start trigger mode, although the manual distinguishes between short and long exposure, 
+            # the camera does not make any practical difference, and LongExposureTransition returns 0. 
+            # "exist" variable indicates if the camera distinguishes between short and long exposure.
+            exist = False
         else:
             # Global Shutter mode
-            if trigger_mode in ["Internal", "External", "Software", "External Start"]:
-                exist = True if not self.camera.Overlap else False
+            if trigger_mode in ["Internal", "External Start", "External", "Software"]:
+                # In this case, if Overlap is True, the camera will effectively only run on long exposure mode
+                # In External trigger mode, although the manual doesn't explicitly say, the camera still distinguishes between short (expo delayed by ~ 1 frame readout time) and long exposure.
+                exist = False if self.camera.Overlap else True
             else:
                 # trigger_mode == "External Exposure"
                 exist = False
 
-        l = self.camera.LongExposureTransition * 1e3
-        # if shutter_mode == "Global":
-        #     if trigger_mode == "External":
-        #         if not self.camera.Overlap:
-        #             # in this mode, the camera may not return the expected long exposure time.
-        #             # in this case, we set the long exposure time to be frame readout time.
-        #             # this part needs to be tested on the actual camera.
-        #             l = self.read_readout_time('frame')
+        l = self.camera.LongExposureTransition * 1e3 # convert from s to ms
 
         return exist, l
     
@@ -400,11 +402,15 @@ class AndorZL41Wave:
         """
 
         trigger_mode = self.camera.TriggerMode
+        assert trigger_mode in ['Internal', 'Software', 'External', 'External Start', 'External Exposure'], f"Invalid trigger mode {trigger_mode}. Mode can only be Internal, Software, External, External Start, or External Exposure."
+
         if trigger_mode not in ["External", "External Exposure"]:
             return None, None
         
         shutter_mode = self.camera.ElectronicShutteringMode
-        t = self.read_readout_time('row') / 1e3 # convert from us to ms
+        assert shutter_mode in ["Rolling", "Global"], f"Invalid shutter mode {shutter_mode}. Mode can only be Rolling or Global."
+
+        t = self.read_readout_time('row') # in ms
         if shutter_mode == "Rolling":
             # for both External and External Exposure trigger mode
             # return delay_min, delay_max
@@ -412,33 +418,34 @@ class AndorZL41Wave:
         else:
             # Global Shutter mode
             if (not long_expo) and trigger_mode == "External" and (not self.camera.Overlap):
-                # The only thing we need to handle differently if External trigger mode non-overlap mode.
                 # Because in this mode, expsure time can be shorter than frame reaout time.
                 # In this case, the trigger delay should be set to frame reaout time.
                 f = self.read_readout_time('frame')
-                return f + t, f + t * 2                
+                return f + t, f + t * 2
+            elif trigger_mode == "External Exposure" and self.camera.Overlap:
+                return 0, t       
             else:
                 return t, 2 * t
 
     def read_readout_time(self, type: str) -> float:
         """
-        Read out readout time in unit of ms or us.
+        Read out readout time in unit of ms.
         """
 
-        assert type in ['frame', 'row']
+        assert type in ['frame', 'row'], f"Invalid readout time type {type}. Type can only be frame or row."
         
         if type == 'frame':
             return self.camera.ReadoutTime * 1e3 # convert from s to ms
         else:
             # type == 'row'
-            return self.camera.RowReadTime * 1e6 # convert from s to us        
+            return self.camera.RowReadTime * 1e3 # convert from s to ms        
 
     def set_pre_amp_gain(self, gain: str) -> tuple:
         """
         Set pre-amplifier gain.
         """
 
-        assert gain in ['16-bit (low noise & high well capacity)', '12-bit (high well capacity)', '12-bit (low noise)']
+        assert gain in ['16-bit (low noise & high well capacity)', '12-bit (high well capacity)', '12-bit (low noise)'], f"Invalid pre-amplifier gain {gain}. Gain can only be 16-bit (low noise & high well capacity), 12-bit (high well capacity), or 12-bit (low noise)."
         
         self.camera.SimplePreAmpGainControl = gain
         gain_actual = self.camera.SimplePreAmpGainControl
@@ -454,7 +461,7 @@ class AndorZL41Wave:
         Set pixel encoding.
         """
 
-        assert encoding in ['Mono12', 'Mono12Packed', 'Mono16', 'Mono32']
+        assert encoding in ['Mono12', 'Mono12Packed', 'Mono16', 'Mono32'], f"Invalid pixel encoding {encoding}. Encoding can only be Mono12, Mono12Packed, Mono16, or Mono32."
         
         self.camera.PixelEncoding = encoding
         encoding_actual = self.camera.PixelEncoding
@@ -485,8 +492,8 @@ class AndorZL41Wave:
         Turn on or off camera noise filter.
         """
 
-        assert filter_type in ['spurious', 'blemish']
-        assert type(enable) == bool
+        assert filter_type in ['spurious', 'blemish'], f"Invalid noise filter type {filter_type}. Type can only be spurious or blemish."
+        assert type(enable) == bool, f"Invalid noise filter enable value type {type(enable)}. Enable should be a boolean."
         
         if filter_type == 'spurious':
             self.camera.SpuriousNoiseFilter = enable
@@ -497,7 +504,8 @@ class AndorZL41Wave:
             else:
                 return (current_value, True)
             
-        elif filter_type == 'blemish':
+        else:
+            #  filter_type == 'blemish'
             self.camera.StaticBlemishCorrection = enable
             current_value = bool(self.camera.StaticBlemishCorrection)
             if current_value != enable:
@@ -511,11 +519,12 @@ class AndorZL41Wave:
         Set auxiliary output signal.
         """
 
-        assert aux_index in [1, 2]
+        assert aux_index in [1, 2], f"Invalid auxiliary output index {aux_index}. Index can only be 1 or 2."
+
         if aux_index == 1:
-            assert aux_output in ['FireRow1', 'FireRowN', 'FireAll', 'FireAny']
+            assert aux_output in ['FireRow1', 'FireRowN', 'FireAll', 'FireAny'], f"Invalid auxiliary output signal {aux_output}. Signal can only be FireRow1, FireRowN, FireAll, or FireAny."
         else:
-            assert aux_output in ['ExternalShutterControl', 'FrameClock', 'RowClock', 'ExposedRowClock']
+            assert aux_output in ['ExternalShutterControl', 'FrameClock', 'RowClock', 'ExposedRowClock'], f"Invalid auxiliary output signal {aux_output}. Signal can only be ExternalShutterControl, FrameClock, RowClock, or ExposedRowClock."
         
         if aux_index == 1:
             self.camera.AuxiliaryOutSource = aux_output
@@ -536,8 +545,8 @@ class AndorZL41Wave:
         Turn on or off camera sensor cooling.
         """
 
-        assert cooler_type in ['sensor', 'fan']
-        assert type(enable) == bool
+        assert cooler_type in ['sensor', 'fan'], f"Invalid cooler type {cooler_type}. Type can only be sensor or fan."
+        assert type(enable) == bool, f"Invalid cooler enable value type {type(enable)}. Enable should be a boolean."
         
         if cooler_type == 'sensor':
             # Sensor cooler refers to the TE cooler on sCMOS sensor.
@@ -569,7 +578,59 @@ class AndorZL41Wave:
         sensor_temp = self.camera.SensorTemperature
 
         return fan_status, sensor_cooler_status, sensor_cooling_status, sensor_temp
+    
+    def export_camera_param(self):
+        """
+        Generate a list of camera parameters that's read directly from the camera. 
+        It can be used to compare if program settings are successfully applied to the camera.
+        """
+        
+        cam_param = {}
 
+        cam_param["SDK3 version"] = self.sdk3.SoftwareVersion
+        cam_param["camera model"] = self.camera.CameraModel
+        cam_param["serial number"] = self.camera.SerialNumber
+        cam_param["interface type"] = self.camera.InterfaceType
+        cam_param["firmware version"] = self.camera.FirmwareVersion
+
+        cam_param["AOI layout"] = self.camera.AOILayout
+        cam_param["shutter mode"] = self.camera.ShutterMode
+
+        cam_param["AOI H binning"] = self.camera.AOIHBin
+        cam_param["AOI width"] = self.camera.AOIWidth
+        cam_param["AOI left (counting from 1)"] = self.camera.AOILeft
+        cam_param["AOI V binning"] = self.camera.AOIVBin
+        cam_param["AOI height"] = self.camera.AOIHeight
+        cam_param["AOI top (counting from 1)"] = self.camera.AOITop
+        cam_param["AOI V centered"] = self.camera.VerticallyCenterAOI
+
+        cam_param["electronic shutter mode"] = self.camera.ElectronicShutteringMode
+        cam_param["trigger mode"] = self.camera.TriggerMode
+        cam_param["exposure overlap"] = self.camera.Overlap
+        cam_param["exposure time (s)"] = self.camera.ExposureTime
+        cam_param["long exposure transition (s)"] = self.camera.LongExposureTransition
+        cam_param["pixel readout rate"] = self.camera.PixelReadoutRate
+        cam_param["frame readout time (s)"] = self.camera.ReadoutTime
+        cam_param["row readout time (s)"] = self.camera.RowReadTime
+
+        cam_param["pre-amplifier gain"] = self.camera.SimplePreAmpGainControl
+        cam_param["pixel encoding"] = self.camera.PixelEncoding
+        cam_param["image size (Bytes)"] = self.camera.ImageSizeBytes
+        cam_param["interface transfer rate (FPS)"] = self.camera.MaxInterfaceTransferRate
+        cam_param["image baseline"] = self.camera.Baseline
+        cam_param["spurious noise filter"] = self.camera.SpuriousNoiseFilter
+        cam_param["blemish noise filter"] = self.camera.StaticBlemishCorrection
+
+        cam_param["auxiliary output 1"] = self.camera.AuxiliaryOutSource
+        cam_param["auxiliary output 2"] = self.camera.AuxOutSourceTwo
+
+        cam_param["sensor cooler"] = self.camera.SensorCooling
+        cam_param["fan cooling"] = self.camera.FanSpeed
+        cam_param["sensor temperature (C)"] = self.camera.SensorTemperature
+        cam_param["temperature status"] = self.camera.TemperatureStatus
+
+        return cam_param
+    
 # logging.getLogger().setLevel("INFO")
 # cam = AndorZL41Wave(None)
 

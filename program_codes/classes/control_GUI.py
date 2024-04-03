@@ -1,13 +1,50 @@
 from collections import deque
-import logging
+import logging, time
 import PyQt5.QtWidgets as qt
 import PyQt5.QtCore
 import numpy as np
 
-from ..widgets import Scrollarea, NewSpinBox, NewComboBox, NewDoubleSpinBox
+from ..widgets import Scrollarea, NewSpinBox, NewComboBox, NewDoubleSpinBox, NewBox
 from .AndorZL41Wave import AndorZL41Wave
 from .TCP_thread import TCPThread
 
+class PopupWindow_cam_param(NewBox):
+    delete = PyQt5.QtCore.pyqtSignal()
+
+    def __init__(self, parent, cam_param: dict):
+        super().__init__(layout_type="grid")
+        self.parent = parent
+        self.setWindowTitle("Andor ZL41 5.5 camera hardware parameters")
+
+        self.resize(450, 250)
+        self.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Preferred)
+
+        self.label = qt.QLabel()
+        self.label.setTextInteractionFlags(PyQt5.QtCore.Qt.TextSelectableByMouse)
+        cam_param_text = "Andor ZL41 5.5 camera hardware parameters:\n"
+        cam_param_text += time.strftime("generated at %I:%M:%S %p on %B %d, %Y.\n\n")
+        cam_param_text += "\n".join([str(key) + ": " + str(val) for key, val in cam_param.items()])
+        self.label.setText(cam_param_text)
+        self.frame.addWidget(self.label, 0, 0)
+
+    def closeEvent(self, event):
+        logging.info("Closing camera parameter popup window...")
+        self.delete.emit()
+
+        return super().closeEvent(event)
+    
+class PopupWindow_liveview(NewBox):
+    delete = PyQt5.QtCore.pyqtSignal()
+
+    def __init__(self, parent):
+        super().__init__(layout_type="grid")
+        self.parent = parent
+
+    def closeEvent(self, event):
+        logging.info("Closing liveview popup window...")
+        self.delete.emit()
+
+        return super().closeEvent(event)
 
 # the class that places elements in UI and handles data processing
 class ControlGUI(Scrollarea):
@@ -40,6 +77,12 @@ class ControlGUI(Scrollarea):
         # don't start tcp thread here, 
         # it will be started when the program load latest setting (using load_settings(latest=true))
         # self.tcp_start()
+
+        self.cooling_status_timer = PyQt5.QtCore.QTimer()
+        self.cooling_status_timer.timeout.connect(self.update_cooling_status)
+        self.cooling_status_timer.start(3000) # in ms, time interval
+
+        self.popup_window_dict = {}
 
     # place recording gui elements
     def place_recording_control(self):
@@ -258,7 +301,7 @@ class ControlGUI(Scrollarea):
         bin_box.setLayout(bin_layout)
         bin_layout.addWidget(self.hardware_bin_h_sb)
         bin_layout.addWidget(self.hardware_bin_v_sb)
-        cam_ctrl_frame.addRow("HW bin H & V:", bin_box)
+        cam_ctrl_frame.addRow("HW bin H && V:", bin_box)
 
         self.hardware_roi_h_centered_chb = qt.QCheckBox()
         self.hardware_roi_h_centered_chb.setTristate(False)
@@ -277,7 +320,7 @@ class ControlGUI(Scrollarea):
         roi_center_box.setLayout(roi_center_layout)
         roi_center_layout.addWidget(self.hardware_roi_h_centered_chb)
         roi_center_layout.addWidget(self.hardware_roi_v_centered_chb)
-        cam_ctrl_frame.addRow("HW ROI centered H & V:", roi_center_box)
+        cam_ctrl_frame.addRow("HW ROI centered H && V:", roi_center_box)
 
         self.hardware_roi_left_sb = NewSpinBox(range=(0, 2559), suffix=None)
         self.hardware_roi_left_sb.valueChanged[int].connect(lambda val: self.set_hardware_roi_start(direction="horizontal", val=val))
@@ -292,7 +335,7 @@ class ControlGUI(Scrollarea):
         roi_start_box.setLayout(roi_start_layout)
         roi_start_layout.addWidget(self.hardware_roi_left_sb)
         roi_start_layout.addWidget(self.hardware_roi_top_sb)
-        cam_ctrl_frame.addRow("HW ROI start H & V:", roi_start_box)
+        cam_ctrl_frame.addRow("HW ROI start H && V:", roi_start_box)
 
         self.hardware_roi_width_sb = NewSpinBox(range=(1, 2560), suffix=None)
         self.hardware_roi_width_sb.valueChanged[int].connect(lambda val: self.set_hardware_roi_size(roi_type="size", direction="horizontal", val=val))
@@ -359,7 +402,7 @@ class ControlGUI(Scrollarea):
         long_exposure_box.setLayout(long_exposure_layout)
         long_exposure_layout.addWidget(self.long_exposure_la)
         long_exposure_layout.addWidget(self.long_exposure_chb)
-        cam_ctrl_frame.addRow("Long exposure:", long_exposure_box)
+        cam_ctrl_frame.addRow("Long exposure (ms):", long_exposure_box)
 
         self.expo_time_dsb = NewDoubleSpinBox(range=(0.005, 10000), decimals=3, suffix=None)
         self.expo_time_dsb.valueChanged[float].connect(lambda val: self.set_expo_time(val))
@@ -377,7 +420,7 @@ class ControlGUI(Scrollarea):
 
         self.row_readout_time_la = qt.QLabel("0")
         self.row_readout_time_la.setStyleSheet("QLabel{background-color: gray;}")
-        cam_ctrl_frame.addRow("Row readout time (us):", self.row_readout_time_la)
+        cam_ctrl_frame.addRow("Row readout time (ms):", self.row_readout_time_la)
 
         self.frame_readout_time_la = qt.QLabel("0")
         self.frame_readout_time_la.setStyleSheet("QLabel{background-color: gray;}")
@@ -463,6 +506,10 @@ class ControlGUI(Scrollarea):
         self.cam_reconnect_pb = qt.QPushButton("Reconnect Camera")
         self.cam_reconnect_pb.clicked[bool].connect(lambda val: self.cam_reconnect())
         cam_ctrl_frame.addRow("Reconnect camera:", self.cam_reconnect_pb)
+
+        self.export_cam_param_pb = qt.QPushButton("Export Camera Param.")
+        self.export_cam_param_pb.clicked[bool].connect(lambda val: self.export_cam_param())
+        cam_ctrl_frame.addRow("Export camera param.:", self.export_cam_param_pb)
 
     # place gui elements related to TCP connection
     def place_tcp_control(self):
@@ -831,7 +878,7 @@ class ControlGUI(Scrollarea):
                                         update_image_size, 
                                         update_interface_rate):
         if update_overlap_mode:
-            if not self.camera.read_overlap_writable:
+            if not self.camera.read_overlap_writable():
                 # if overlap mode is not writable in the current shutter and trigger mode
                 # overlap is fixed to be false
                 if self.expo_overlap_chb.isEnabled():
@@ -840,11 +887,10 @@ class ControlGUI(Scrollarea):
                     self.expo_overlap_chb.blockSignals(False)
                     self.expo_overlap_chb.setChecked(False)
                     self.expo_overlap_chb.blockSignals(True)
-                    # self.parent.config["camera_control"]["exposure_overlap"] = "False"
+                    self.parent.config["camera_control"]["exposure_overlap"] = "False"
             else:
                 if not self.expo_overlap_chb.isEnabled():
                     self.expo_overlap_chb.setEnabled(True)
-                self.expo_overlap_chb.setChecked(self.parent.config.getboolean("camera_control", "exposure_overlap"))
 
         if update_expo_time:
             min_expo_time, max_expo_time = self.camera.read_exposre_time_range()
@@ -854,12 +900,13 @@ class ControlGUI(Scrollarea):
                 if not self.long_exposure_chb.isEnabled(): 
                     self.long_exposure_chb.setEnabled(True)
                 self.long_exposure_la.setText("{:.3f}".format(long_expo))
+                row_readout_time = self.camera.read_readout_time("row") # in ms
                 if self.parent.config.getboolean("camera_control", "long_exposure"):
-                    self.expo_time_dsb.setMinimum(long_expo)
+                    self.expo_time_dsb.setMinimum(long_expo + row_readout_time/2) # add half row readout time to avoid rounding to wrong region
                     self.expo_time_dsb.setMaximum(max_expo_time)
                 else:
                     self.expo_time_dsb.setMinimum(min_expo_time)
-                    self.expo_time_dsb.setMaximum(long_expo)
+                    self.expo_time_dsb.setMaximum(long_expo - row_readout_time/2)
             else:
                 # if short exposure mode doesn't exist in the current shutter and trigger mode, make it long exposure mode by default
                 if self.long_exposure_chb.isEnabled():
@@ -977,8 +1024,33 @@ class ControlGUI(Scrollarea):
                 self.fan_cooling_chb.setChecked(actual_val)
                 self.fan_cooling_chb.blockSignals(False)
 
+    def update_cooling_status(self):
+        if not self.active:
+            # not taking images
+            fan_status, sensor_cooler_status, sensor_cooling_status, sensor_temp = self.camera.read_cooling_status()
+            self.cooling_status_la.setText(sensor_cooling_status)
+            self.sensor_temp_la.setText("{:.2f}".format(sensor_temp))
+
     def cam_reconnect(self):
         pass
+
+    def export_cam_param(self):
+        if "cam_param" in self.popup_window_dict.keys():
+            logging.info("Camera parameter popup window already exists.")
+            return
+                         
+        cam_param = self.camera.export_camera_param()
+
+        p = PopupWindow_cam_param(parent=self, cam_param=cam_param)
+        p.delete.connect(lambda win_type="cam_param": self.delete_popup_window(win_type))
+        self.popup_window_dict["cam_param"] = p
+        p.show()
+
+    @PyQt5.QtCore.pyqtSlot()
+    def delete_popup_window(self, win_type):
+        assert win_type in ["cam_param", "liveview"], f"win_type {win_type} not supported."
+
+        self.popup_window_dict.pop(win_type)
 
     def tcp_start(self):
         self.tcp_active = True
@@ -1219,7 +1291,7 @@ class ControlGUI(Scrollarea):
 
         # make sure to only read out these values after setting pixel readout rate, shutter, trigger, ROI
         self.frame_readout_time_la.setText("{:.3f}".format(self.camera.read_readout_time("frame")))
-        self.row_readout_time_la.setText("{:.2f}".format(self.camera.read_readout_time("row")))
+        self.row_readout_time_la.setText("{:.5f}".format(self.camera.read_readout_time("row")))
 
         actual_gain, pixel_encoding, success = self.camera.set_pre_amp_gain(self.parent.config["camera_control"]["preamp_gain"])
         if not success:
@@ -1290,3 +1362,6 @@ class ControlGUI(Scrollarea):
     def program_close(self):
         self.tcp_stop()
         self.camera.close()
+        self.cooling_status_timer.stop()
+        for win_type, win in self.popup_window_dict.items():
+            win.close()

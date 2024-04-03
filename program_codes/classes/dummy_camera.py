@@ -1,18 +1,23 @@
 from PyQt5.QtCore import QTimer
 import logging, math
 
-# This class defines a dummy camera, which mimics the bahaviour of Andor Zyla 5.5 sCMOS camera.
+"""
+This class defines a dummy camera, which mimics the bahaviour of Andor Zyla 5.5 sCMOS camera.
 
-# To make programming easier,
-# the values of class data attributes are only changed when they are read out,
-# but not when the correlated data attributes are changed.
-# For example, changing SimplePreAmpGainControl could change PixelEncoding,
-# but the value of PixelEncoding is only checked and changed when it is read out.
-# The same also applies to AOI, exposure time and readout time.
+To make programming easier,
+the values of class data attributes are only changed when they are read out,
+but not when the correlated data attributes are changed.
+For example, changing SimplePreAmpGainControl could change PixelEncoding,
+but the value of PixelEncoding is only checked and changed when it is read out.
+The same also applies to AOI, exposure time and readout time.
 
-# So when writing a setter function, simply do a sanity check on the input value, and set the value of the data attribute.
-# But when writing a getter function, if the value of this attribute can be changed by other attributes,
-# then the value of this attribute needs to be re-calculated.
+So when writing a setter function, simply do a sanity check on the input value, and set the value of the data attribute.
+But when writing a getter function, if the value of this attribute can be changed by other attributes,
+then the value of this attribute needs to be re-calculated.
+
+Note that this class has not been fully tested (!!!) against the actual camera, so there could be inconsistency between this dummy camera and a real one.
+"""
+
 class DummyCamera:
     __isfrozen = False
     def __init__(self):
@@ -181,7 +186,7 @@ class DummyCamera:
     
     @property
     def max_AOIWidth(self):
-        self._max_AOIWidth = int(self._sensor_width / self.AOIHBin) # Since max_AOIWidth is 640, this value if >= 4, which is min_AOIWidth
+        self._max_AOIWidth = int(self._sensor_width / self.AOIHBin) # Since max_AOIHBin is 640, this value is always >= 4, which is min_AOIWidth
         return self._max_AOIWidth
     
     @property
@@ -304,7 +309,7 @@ class DummyCamera:
         assert overlap in [True, False]
         shutter = self.ElectronicShutteringMode
         trigger = self.TriggerMode
-        if shutter == "Rolling" and trigger in ["External", "Software", "External Exposure"]:
+        if shutter == "Rolling" and trigger in ["External", "Software"]:
             logging.error("Overlap is not writable for rolling shutter and External/Software/External Exposure trigger mode. Overlap is set to False.")
         else:
             self._Overlap = overlap
@@ -375,20 +380,13 @@ class DummyCamera:
     @property
     def LongExposureTransition(self):
         shutter = self.ElectronicShutteringMode
-        trigger = self.TriggerMode
 
+        # values here are read from the actual camera
         if shutter == "Rolling":
-            if trigger in ["Internal", "External Start"] and self.Overlap:
-                self._LongExposureTransition = self.ReadoutTime
-            else:
-                # in these modes, the camera doesn't distinguish between short and long exposure
-                self._LongExposureTransition = self.min_ExposureTime
+            self._LongExposureTransition = 0
         else:
             # shutter == "Global"
-            if trigger in ["Internal", "External", "Software", "External Start"] and (not self.Overlap):
-                self._LongExposureTransition = self.ReadoutTime + self.RowReadTime * 4
-            else:
-                self._LongExposureTransition = self.min_ExposureTime
+            self._LongExposureTransition = self.ReadoutTime + self.RowReadTime * 3.5
 
         return self._LongExposureTransition
     
