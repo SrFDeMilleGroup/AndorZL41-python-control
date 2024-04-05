@@ -69,4 +69,3 @@ Other softwares
 - apply to Apogee camera (need to switch to Andor sdk2)
 - better readme.md file
 - Camera external trigger delay (AndorZL41Wave.read_trigger_delay) needs to be tested on an actual camera.
-- control gui: live view, and list camera harware settings, update temp

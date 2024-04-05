@@ -41,12 +41,14 @@ class AndorZL41Wave:
             logging.info("Connected to camera of index = {:d}.".format(cam_index))
             logging.info(f"Camera model: {self.camera.CameraModel}. Serial number: {self.camera.SerialNumber}. Interface: {self.camera.InterfaceType}.")
             logging.info(f"Firmware version: {self.camera.FirmwareVersion}.")
+            self.using_dummy_cam = False
 
         except Exception as err:
             logging.error(f"Failed to connect to camera of index = {cam_index}.")
             logging.error(err)
             logging.error("Using a dummy camera instance instead.")
             self.camera = DummyCamera()
+            self.using_dummy_cam = True
 
         self.init_cam()
 
@@ -697,7 +699,7 @@ class AndorZL41Wave:
             assert type(image_size) == int, f"Invalid image size value type {type(image_size)}. Image size should be an integer."
             self.camera.queue(acq._np_data, image_size)
 
-        return acq.image
+        return acq.image.T
 
     def stop_acquisition(self):
         """

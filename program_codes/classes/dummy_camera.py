@@ -1,5 +1,6 @@
 from PyQt5.QtCore import QTimer
-import logging, math
+import logging, math, time
+import numpy as np
 
 """
 This class defines a dummy camera, which mimics the bahaviour of Andor Zyla 5.5 sCMOS camera.
@@ -73,6 +74,12 @@ class DummyCamera:
         self.temp_timer = QTimer()
         self.temp_timer.timeout.connect(self.update_temperature)
         self.temp_timer.start(5000) # in ms, time interval
+
+        self.CycleMode = 'Fixed' # Fixed or Continuous
+        self.FrameCount = 1
+        self.AccumulateCount = 1
+        self.MetadataEnable = False
+        self.MetadataTimeStamp = True
                 
         # call the following functions just to have all attributes created before __isfrozen set to True        
         self.ReadoutTime
@@ -83,6 +90,8 @@ class DummyCamera:
         self.ImageSizeBytes
         self.MaxInterfaceTransferRate
         self.Baseline
+
+        self._rng = np.random.default_rng(12345)
 
         self.__isfrozen = True
 
@@ -363,12 +372,14 @@ class DummyCamera:
                 if self.Overlap:
                     self._min_ExposureTime = self.ReadoutTime + self.RowReadTime * (1 + 9)
                 else:
-                    self._min_ExposureTime = self.ReadoutTime + self.RowReadTime * 3
+                    # self._min_ExposureTime = self.ReadoutTime + self.RowReadTime * 3
+                    self._min_ExposureTime = self.RowReadTime # Andor camera actually allows you to set exposure time down to 1 row readout time, but in this case the exposure is delay from trigger.
             elif trigger == "External Exposure":
                 if self.Overlap:
                     self._min_ExposureTime = self.ReadoutTime * 2 + self.RowReadTime * 9 * 2
                 else:
-                    self._min_ExposureTime = self.ReadoutTime + self.RowReadTime * 3
+                    # self._min_ExposureTime = self.ReadoutTime + self.RowReadTime * 3
+                    self._min_ExposureTime = self.RowReadTime # Andor camera actually allows you to set exposure time down to 1 row readout time, but in this case the exposure stops at the next trigger.
 
         return self._min_ExposureTime
     
@@ -555,3 +566,97 @@ class DummyCamera:
             self._TemperatureStatus = 'Cooler off'
             if self._SensorTemperature >= max_temp:
                 self._SensorTemperature = max_temp
+
+    @property
+    def CycleMode(self):
+        return self._CycleMode
+    
+    @CycleMode.setter
+    def CycleMode(self, mode):
+        assert mode in ["Fixed", "Continuous"]
+        self._CycleMode = mode
+
+    @property
+    def FrameCount(self):
+        self._FrameCount = max(self.min_FrameCount, self._FrameCount)
+        self._FrameCount = min(self.max_FrameCount, self._FrameCount)
+
+        return self._FrameCount
+    
+    @FrameCount.setter
+    def FrameCount(self, count):
+        assert count >= self.min_FrameCount
+        assert count <= self.max_FrameCount
+
+        self._FrameCount = count
+
+    @property
+    def min_FrameCount(self):
+        return 1
+    
+    @property
+    def max_FrameCount(self):
+        return 2147483646
+    
+    @property
+    def AccumedulateCount(self):
+        self._AccumulateCount = max(self.min_AccumulateCount, self._AccumulateCount)
+        self._AccumulateCount = min(self.max_AccumulateCount, self._AccumulateCount)
+        return self._AccumulateCount
+    
+    @AccumedulateCount.setter
+    def AccumedulateCount(self, count):
+        assert count >= self.min_AccumulateCount
+        assert count <= self.max_AccumulateCount
+
+        self._AccumulateCount = count
+
+    @property
+    def min_AccumulateCount(self):
+        return 1
+    
+    @property
+    def max_AccumulateCount(self):
+        return 2147483646
+    
+    @property
+    def MetadataEnable(self):
+        return self._MetadataEnable
+    
+    @MetadataEnable.setter
+    def MetadataEnable(self, enable):
+        assert type(enable) == bool
+        self._MetadataEnable = enable
+
+    @property
+    def MetadataTimeStamp(self):
+        return self._MetaTimeStamp
+    
+    @MetadataTimeStamp.setter
+    def MetadataTimeStamp(self, enable):
+        assert type(enable) == bool
+        self._MetaTimeStamp = enable
+
+    def SoftwareTrigger(self):
+        pass
+
+    def AcquisitionStart(self):
+        pass
+
+    def AcquisitionStop(self):
+        pass
+
+    def queue(self, buf, imgsize):
+        pass
+
+    def wait_buffer(self, timeout):
+        time.sleep(0.02)
+        return AndorAcquisition(self._rng, self.AOIWidth, self.AOIHeight)
+
+    def flush(self):
+        pass
+
+class AndorAcquisition:
+    def __init__(self, rng, aoi_width, aoi_height):
+        self.image = rng.integers(0, 65536, (aoi_width, aoi_height), dtype=np.uint16) # include 0, exclude 65536
+        self._np_data = self.image.flatten()

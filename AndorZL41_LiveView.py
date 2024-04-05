@@ -1,9 +1,7 @@
 import sys, time
 import logging, traceback
-import numpy as np
 import PyQt5
 import PyQt5.QtWidgets as qt
-import pyqtgraph as pg
 import qdarkstyle # see https://github.com/ColinDuquesnoy/QDarkStyleSheet
 
 from program_codes.widgets import Scrollarea, NewSpinBox, NewDoubleSpinBox, imageWidget
@@ -44,6 +42,9 @@ class ControlGUI(Scrollarea):
         self.camera = AndorZL41Wave(self)
         self.cam_init()
 
+        if self.camera.using_dummy_cam:
+            self.place_dummy_cam_label()
+
         # places GUI elements
         self.place_recording_control()
         self.place_cam_control()
@@ -75,10 +76,24 @@ class ControlGUI(Scrollarea):
         self.camera.enable_cooler(cooler_type="fan", enable=True)
         self.camera.enable_cooler(cooler_type="sensor", enable=True)
 
+    def place_dummy_cam_label(self):
+        dummy_cam_box = qt.QGroupBox("Dummy camera")
+        dummy_cam_box.setStyleSheet("QGroupBox {border: 1px solid #304249;}")
+        dummy_cam_box.setMaximumHeight(80)
+        dummy_cam_frame = qt.QGridLayout()
+        dummy_cam_box.setLayout(dummy_cam_frame)
+        self.frame.addWidget(dummy_cam_box)
+
+        self.dummy_cam_label = qt.QLabel("Using Dummy Camera !!!")
+        self.dummy_cam_label.setStyleSheet("QLabel{font: 15pt; background-color: gray;}")
+        self.dummy_cam_label.setMaximumHeight(40)
+        self.dummy_cam_label.setAlignment(PyQt5.QtCore.Qt.AlignCenter)
+        dummy_cam_frame.addWidget(self.dummy_cam_label, 0, 0)
+
     def place_recording_control(self):
         record_box = qt.QGroupBox("Recording")
         record_box.setStyleSheet("QGroupBox {border: 1px solid #304249;}")
-        record_box.setMaximumHeight(80)
+        record_box.setMaximumHeight(60)
         record_frame = qt.QFormLayout()
         record_box.setLayout(record_frame)
         self.frame.addWidget(record_box)
@@ -176,7 +191,7 @@ class ControlGUI(Scrollarea):
         roi_height_layout.addWidget(self.hardware_roi_height_unbinned_la)
         cam_ctrl_frame.addRow("HW ROI height:", roi_height_box)
 
-        self.expo_time_dsb = NewDoubleSpinBox(range=(0.005, 30000), decimals=3, suffix=None)
+        self.expo_time_dsb = NewDoubleSpinBox(range=(0.009, 30000), decimals=3, suffix=None)
         self.expo_time_dsb.setValue(self.expo_time)
         self.expo_time_dsb.valueChanged[float].connect(lambda val: self.set_expo_time(val))
         cam_ctrl_frame.addRow("Exposure time (ms):", self.expo_time_dsb)

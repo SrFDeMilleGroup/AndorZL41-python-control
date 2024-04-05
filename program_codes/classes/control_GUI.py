@@ -57,6 +57,11 @@ class ControlGUI(Scrollarea):
         # save signal count
         self.signal_count_deque = deque([], maxlen=200)
 
+        # place a clear label to show that the program is using dummy camera now
+        # because it has trouble connecting to an actual camera
+        if self.camera.using_dummy_cam:
+            self.place_dummy_cam_label()
+
         # places GUI elements
         self.place_recording_control()
         self.place_image_control()
@@ -73,6 +78,21 @@ class ControlGUI(Scrollarea):
         self.cooling_status_timer.start(3000) # in ms, time interval
 
         self.popup_window_dict = {}
+
+    def place_dummy_cam_label(self):
+        dummy_cam_box = qt.QGroupBox("Dummy camera")
+        dummy_cam_box.setStyleSheet("QGroupBox {border: 1px solid #304249;}")
+        dummy_cam_box.setMaximumHeight(80)
+        dummy_cam_frame = qt.QGridLayout()
+        dummy_cam_box.setLayout(dummy_cam_frame)
+        self.frame.addWidget(dummy_cam_box)
+
+        self.dummy_cam_label = qt.QLabel("Using Dummy Camera !!!")
+        self.dummy_cam_label.setStyleSheet("QLabel{font: 15pt; background-color: gray;}")
+        self.dummy_cam_label.setMinimumHeight(40)
+        self.dummy_cam_label.setMaximumHeight(50)
+        self.dummy_cam_label.setAlignment(PyQt5.QtCore.Qt.AlignCenter)
+        dummy_cam_frame.addWidget(self.dummy_cam_label, 0, 0)
 
     # place recording gui elements
     def place_recording_control(self):
