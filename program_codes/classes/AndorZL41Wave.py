@@ -53,6 +53,7 @@ class AndorZL41Wave:
     def init_cam(self):
         self.camera.AOILayout = 'Image' # default setting is also image, this step can be skipped
         self.camera.ShutterMode = 'Closed' # shutter closed until exposure is triggered
+        self.AccumulateCount = 1 # number of images to be summed to get each image
 
         # below are constants for Andor ZL41 Wave 5.5
         self.cam_sensor_size_horizontal = 2560
@@ -324,7 +325,7 @@ class AndorZL41Wave:
         Set exposure time in unit of ms.
         """
 
-        assert type(time) == float, f"Invalid exposure time value type {type(time)}. Time should be a float."
+        assert type(time) in [float, int], f"Invalid exposure time value type {type(time)}. Time should be a float or integer."
         
         new_time = np.clip(time, self.camera.min_ExposureTime * 1e3, self.camera.max_ExposureTime * 1e3) # convert from s to ms
         if new_time != time:
@@ -579,7 +580,7 @@ class AndorZL41Wave:
 
         return fan_status, sensor_cooler_status, sensor_cooling_status, sensor_temp
     
-    def export_camera_param(self):
+    def read_camera_param(self):
         """
         Generate a list of camera parameters that's read directly from the camera. 
         It can be used to compare if program settings are successfully applied to the camera.
@@ -626,11 +627,86 @@ class AndorZL41Wave:
 
         cam_param["sensor cooler"] = self.camera.SensorCooling
         cam_param["fan cooling"] = self.camera.FanSpeed
-        cam_param["sensor temperature (C)"] = self.camera.SensorTemperature
+        cam_param["sensor temperature (deg C)"] = self.camera.SensorTemperature
         cam_param["temperature status"] = self.camera.TemperatureStatus
 
         return cam_param
     
+    def software_trigger(self):
+        """
+        Trigger camera exposure by software.
+        """
+
+        self.camera.SoftwareTrigger()
+
+    def start_acquisition(self, cycle_mode: str, frame_count: int = 0, buffer_size: int = 25, save_metadata: bool = False):
+        """
+        Configure and start camera acquisition.
+        In continuous mode, frame_count is ignored.
+        In fixed mode, frame_count is necessary.
+        """
+
+        assert cycle_mode in ['Fixed', 'Continuous'], f"Invalid cycle mode {cycle_mode}. Mode can only be Fixed, Continuous."
+        self.camera.CycleMode = cycle_mode
+        actual_cycle_mode = self.camera.CycleMode
+        if actual_cycle_mode != cycle_mode:
+            logging.error(f"Failed to set cycle mode to {cycle_mode}. Current value is {actual_cycle_mode}.")
+
+        if actual_cycle_mode == 'Fixed':
+            assert type(frame_count) == int, f"Invalid frame count value type {type(frame_count)}. Frame count should be an integer."
+            self.camera.FrameCount = np.clip(frame_count, self.camera.min_FrameCount, self.camera.max_FrameCount)
+            actual_frame_count = self.camera.FrameCount
+            if actual_frame_count != frame_count:
+                logging.error(f"Failed to set frame count to {frame_count}. Current value is {actual_frame_count}.")
+
+        assert type(buffer_size) == int, f"Invalid buffer size value type {type(buffer_size)}. Buffer size should be an integer."
+        imgsize = self.camera.ImageSizeBytes
+        for _ in range(0, buffer_size):
+            buf = np.empty((imgsize,), dtype='B')
+            self.camera.queue(buf, imgsize)
+
+        assert type(save_metadata) == bool, f"Invalid save metadata value type {type(save_metadata)}. Save metadata should be a boolean."
+        if save_metadata:
+            self.camera.MetadataEnable = True
+            self.camera.MetadataTimeStamp = True
+        else:
+            self.camera.MetadataEnable = False
+            self.camera.MetadataTimeStamp = False
+        actual_metadate_enable = self.camera.MetadataEnable
+        actual_metadate_timestamp = self.camera.MetadataTimeStamp
+        if actual_metadate_enable != save_metadata:
+            logging.error(f"Failed to set metadata enable to {save_metadata}. Current value is {actual_metadate_enable}.")
+        if actual_metadate_timestamp != save_metadata:
+            logging.error(f"Failed to set metadata timestamp to {save_metadata}. Current value is {actual_metadate_timestamp}.")
+
+        self.camera.AcquisitionStart()
+
+    def read_buffer(self, circular_buffer: bool = True, image_size: int = 0, timeout: int = 10000):
+        """
+        Read out 1 image from the buffer.
+        If circular_buffer is False, image_size (self.camera.ImageSizeBytes) argument is ignored.
+        timeout is in milliseconds.
+        """
+
+        assert type(circular_buffer) == bool, f"Invalid circular buffer value type {type(circular_buffer)}. Circular buffer should be a boolean."
+        assert type(timeout) == int, f"Invalid timeout value type {type(timeout)}. Timeout should be an integer."
+
+        acq = self.camera.wait_buffer(timeout)
+
+        if circular_buffer:
+            assert type(image_size) == int, f"Invalid image size value type {type(image_size)}. Image size should be an integer."
+            self.camera.queue(acq._np_data, image_size)
+
+        return acq.image
+
+    def stop_acquisition(self):
+        """
+        Stop camera acquisition.
+        """
+
+        self.camera.AcquisitionStop()
+        self.camera.flush()
+
+
 # logging.getLogger().setLevel("INFO")
 # cam = AndorZL41Wave(None)
-

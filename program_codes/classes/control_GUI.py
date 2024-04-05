@@ -16,6 +16,9 @@ class PopupWindow_cam_param(NewBox):
         self.parent = parent
         self.setWindowTitle("Andor ZL41 5.5 camera hardware parameters")
 
+        style = "QGroupBox{border-width: 2px; font-size: 11pt; font-weight: Medium; padding-top: 12px;}"
+        style += "QLabel{font: 9pt}"
+        self.setStyleSheet(style)
         self.resize(450, 250)
         self.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Preferred)
 
@@ -29,19 +32,6 @@ class PopupWindow_cam_param(NewBox):
 
     def closeEvent(self, event):
         logging.info("Closing camera parameter popup window...")
-        self.delete.emit()
-
-        return super().closeEvent(event)
-    
-class PopupWindow_liveview(NewBox):
-    delete = PyQt5.QtCore.pyqtSignal()
-
-    def __init__(self, parent):
-        super().__init__(layout_type="grid")
-        self.parent = parent
-
-    def closeEvent(self, event):
-        logging.info("Closing liveview popup window...")
         self.delete.emit()
 
         return super().closeEvent(event)
@@ -353,7 +343,7 @@ class ControlGUI(Scrollarea):
         cam_ctrl_frame.addRow("HW ROI width:", roi_width_box)
 
         self.hardware_roi_height_sb = NewSpinBox(range=(1, 2160), suffix=None)
-        self.hardware_roi_height_sb.valueChanged[int].connect(lambda val: self.set_hardware_roi_size(roi_type="size",direction="vertical" , val=val))
+        self.hardware_roi_height_sb.valueChanged[int].connect(lambda val: self.set_hardware_roi_size(roi_type="size", direction="vertical", val=val))
         self.hardware_roi_height_sb.setToolTip("Height in binned pixels")
         self.hardware_roi_height_unbinned_la = qt.QLabel("2160")
         self.hardware_roi_height_unbinned_la.setStyleSheet("QLabel{background-color: gray;}")
@@ -404,7 +394,7 @@ class ControlGUI(Scrollarea):
         long_exposure_layout.addWidget(self.long_exposure_chb)
         cam_ctrl_frame.addRow("Long exposure (ms):", long_exposure_box)
 
-        self.expo_time_dsb = NewDoubleSpinBox(range=(0.005, 10000), decimals=3, suffix=None)
+        self.expo_time_dsb = NewDoubleSpinBox(range=(0.005, 30000), decimals=3, suffix=None)
         self.expo_time_dsb.valueChanged[float].connect(lambda val: self.set_expo_time(val))
         cam_ctrl_frame.addRow("Exposure time (ms):", self.expo_time_dsb)
 
@@ -507,9 +497,10 @@ class ControlGUI(Scrollarea):
         self.cam_reconnect_pb.clicked[bool].connect(lambda val: self.cam_reconnect())
         cam_ctrl_frame.addRow("Reconnect camera:", self.cam_reconnect_pb)
 
-        self.export_cam_param_pb = qt.QPushButton("Export Camera Param.")
-        self.export_cam_param_pb.clicked[bool].connect(lambda val: self.export_cam_param())
-        cam_ctrl_frame.addRow("Export camera param.:", self.export_cam_param_pb)
+        self.read_cam_param_pb = qt.QPushButton("Read Camera Param.")
+        self.read_cam_param_pb.clicked[bool].connect(lambda val: self.read_cam_param())
+        self.read_cam_param_pb.setToolTip("Read parameters directly from camera. Used to compare if program settings are successfully applied to the camera.")
+        cam_ctrl_frame.addRow("Read camera param.:", self.read_cam_param_pb)
 
     # place gui elements related to TCP connection
     def place_tcp_control(self):
@@ -1034,12 +1025,12 @@ class ControlGUI(Scrollarea):
     def cam_reconnect(self):
         pass
 
-    def export_cam_param(self):
+    def read_cam_param(self):
         if "cam_param" in self.popup_window_dict.keys():
             logging.info("Camera parameter popup window already exists.")
             return
                          
-        cam_param = self.camera.export_camera_param()
+        cam_param = self.camera.read_camera_param()
 
         p = PopupWindow_cam_param(parent=self, cam_param=cam_param)
         p.delete.connect(lambda win_type="cam_param": self.delete_popup_window(win_type))
@@ -1048,7 +1039,7 @@ class ControlGUI(Scrollarea):
 
     @PyQt5.QtCore.pyqtSlot()
     def delete_popup_window(self, win_type):
-        assert win_type in ["cam_param", "liveview"], f"win_type {win_type} not supported."
+        assert win_type in ["cam_param"], f"win_type {win_type} not supported."
 
         self.popup_window_dict.pop(win_type)
 

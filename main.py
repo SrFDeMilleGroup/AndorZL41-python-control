@@ -24,7 +24,7 @@ class AndorGUI(qt.QMainWindow):
         self.config = configparser.ConfigParser()
         self.config.read('program_setting_latest.ini')
 
-        # # instantiate other classes
+        # instantiate other classes
         self.control_gui = ControlGUI(self)
         self.image_gui = ImageGUI(self)
 
